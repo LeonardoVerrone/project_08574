@@ -1,10 +1,12 @@
 #include "./headers/pcb.h"
+#include "../klog.c"
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
 static int next_pid = 1;
 
 void initPcbs() {
+	klog_print("here!");
 }
 
 void freePcb(pcb_t *p) {
