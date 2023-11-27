@@ -5,6 +5,21 @@ static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
 static int next_pid = 1;
 
+static struct list_head *list_search(const struct list_head *head,
+                                     const pcb_t *p) {
+  struct list_head *iter;
+  list_for_each(iter, head) {
+    if (iter == &p->p_list) {
+      return iter;
+    }
+  }
+  return NULL;
+}
+
+static inline int list_contains(const struct list_head *head, const pcb_t *p) {
+  return list_search(head, p) != NULL;
+}
+
 void initPcbs() {
   // inizializzo pcbFree_h
   INIT_LIST_HEAD(&pcbFree_h);
@@ -17,7 +32,7 @@ void initPcbs() {
 
 void freePcb(pcb_t *p) {
   // TODO: aggiungere controllo se p è già contenuto in pcbFree_h
-  if (p == NULL)
+  if (p == NULL || list_contains(&pcbFree_h, p))
     return;
 
   // devo inserire p in pcbFree_h
@@ -41,23 +56,19 @@ pcb_t *allocPcb() {
   list_del(pcbFree_h.next);
 
   // init process queue
-  p->p_list.prev = NULL;
-  p->p_list.next = NULL;
+  INIT_LIST_HEAD(&p->p_list);
 
   // init process tree fields
   p->p_parent = NULL;
-  p->p_child.prev = NULL;
-  p->p_child.next = NULL;
-  p->p_sib.prev = NULL;
-  p->p_sib.next = NULL;
+  INIT_LIST_HEAD(&p->p_child);
+  INIT_LIST_HEAD(&p->p_sib);
 
   // init process status information
   // TODO: processor state (non ho trovato neanche la dichiarazione di state_t)
   p->p_time = 0;
 
   // init message queue
-  p->msg_inbox.prev = NULL;
-  p->msg_inbox.next = NULL;
+  INIT_LIST_HEAD(&p->msg_inbox);
 
   // init pointer to the support struct
   // TODO: non ho capito cosa sia
@@ -85,17 +96,58 @@ pcb_t *allocPcb() {
   // */
 }
 
-void mkEmptyProcQ(struct list_head *head) {}
+void mkEmptyProcQ(struct list_head *head) {
+  if (head == NULL) {
+    return;
+  }
 
-int emptyProcQ(struct list_head *head) {}
+  INIT_LIST_HEAD(head);
+}
 
-void insertProcQ(struct list_head *head, pcb_t *p) {}
+int emptyProcQ(struct list_head *head) {
+  if (head == NULL) {
+    return 1;
+  }
 
-pcb_t *headProcQ(struct list_head *head) {}
+  return list_empty(head);
+}
 
-pcb_t *removeProcQ(struct list_head *head) {}
+void insertProcQ(struct list_head *head, pcb_t *p) {
+  if (head == NULL || p == NULL) {
+    return;
+  }
 
-pcb_t *outProcQ(struct list_head *head, pcb_t *p) {}
+  list_add_tail(&p->p_list, head);
+}
+
+pcb_t *headProcQ(struct list_head *head) {
+  if (head == NULL || list_empty(head)) {
+    return NULL;
+  }
+
+  return container_of(head->next, pcb_t, p_list);
+}
+
+pcb_t *removeProcQ(struct list_head *head) {
+  if (head == NULL || list_empty(head)) {
+    return NULL;
+  }
+
+  pcb_t *p = container_of(head->next, pcb_t, p_list);
+  list_del(head->next);
+  return p;
+}
+
+pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
+  if (head == NULL || p == NULL || list_empty(head) ||
+      !list_contains(head, p)) {
+    return NULL;
+  }
+
+  list_del(&p->p_list);
+
+  return p;
+}
 
 int emptyChild(pcb_t *p) {}
 
