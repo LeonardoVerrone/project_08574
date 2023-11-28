@@ -149,10 +149,49 @@ pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
   return p;
 }
 
-int emptyChild(pcb_t *p) {}
+// lista dei figli: 
+  //  1) p_child del padre funge da elemento sentinella 
+  //  2) i figli sono collegati fra loro dai puntatori p_sib
 
-void insertChild(pcb_t *prnt, pcb_t *p) {}
+int emptyChild(pcb_t *p) {
+  if(p == NULL) // <- serve davvero o abbiamo garanzia p != NULL?
+    return 1;
+  
+  return list_empty( &p->p_child ); // p.p_child è la testa della lista
+}
 
-pcb_t *removeChild(pcb_t *p) {}
+void insertChild(pcb_t *prnt, pcb_t *p) {
+  if(prnt == NULL || p == NULL) // ?
+    return;
+  
+  list_add_tail( &p->p_sib,&prnt->p_child );
+  p->p_parent = prnt;
+}
 
-pcb_t *outChild(pcb_t *p) {}
+pcb_t *removeChild(pcb_t *p) {
+  if(p == NULL) //?
+    return NULL;
+  
+  if( !emptyChild(p) ){
+    struct list_head *sib = p->p_child.next; // = punta p_sib del primo figlio
+    list_del(sib);
+    INIT_LIST_HEAD(sib); //reinizializzo p_sib del figlio staccato
+    return container_of( sib, pcb_t, p_sib); // (puntatore al list_head della strutt, tipo strutt, nome list_head nella strutt)
+  }
+  else
+    return NULL;
+}
+
+pcb_t *outChild(pcb_t *p) {
+  if(p == NULL) //?
+    return NULL;
+    
+  if( p->p_parent != NULL){
+    list_del(&p->p_sib);
+    p->p_parent = NULL;
+    INIT_LIST_HEAD(&p->p_sib);
+    return p;
+  }
+  else
+    return NULL;
+}
