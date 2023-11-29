@@ -38,18 +38,45 @@ msg_t *allocMsg() {
 }
 
 void mkEmptyMessageQ(struct list_head *head) {
+  /*
+  if (head == NULL) {
+    return;
+  }
+
+  INIT_LIST_HEAD(head);
+  */
+  // DUBBIO->DICE: Used to initialize a variable to be head pointer to a message queque; RETURNS a pointer to the head of an empty message queque, i.e. NULL
+  // => come fa anche solo a ritornare qualsosa???
 }
 
 int emptyMessageQ(struct list_head *head) {
+  if (head == NULL)
+    return 1;
+  else
+    return list_empty(head);
 }
 
 void insertMessage(struct list_head *head, msg_t *m) {
+  if (head == NULL || m == NULL)
+    return;
+
+  list_add_tail(&m->m_list, head);
 }
 
 void pushMessage(struct list_head *head, msg_t *m) {
+  if (head == NULL || m == NULL)
+    return;
+
+  list_add(&m->m_list, head); //aggiunge in testa
 }
 
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
+  if ( head == NULL || list_empty(head) || list_empty(&p_ptr->msg_inbox) )
+    return NULL;
+
+  msg_t *m = container_of(head->next, msg_t, m_list);
+  list_del(head->next);
+  return m;
 }
 
 msg_t *headMessage(struct list_head *head) {
