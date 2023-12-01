@@ -31,7 +31,6 @@ void initPcbs() {
 }
 
 void freePcb(pcb_t *p) {
-  // TODO: aggiungere controllo se p è già contenuto in pcbFree_h
   if (p == NULL || list_contains(&pcbFree_h, p))
     return;
 
@@ -129,43 +128,79 @@ pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
   return p;
 }
 
-// lista dei figli: 
-  //  1) p_child del padre funge da elemento sentinella 
-  //  2) i figli sono collegati fra loro dai puntatori p_sib
+/*
+ * Leo: per quanto riguardo le guardie all'inizio dei metodi: siccome questi
+ * metodi li possiamo considerare "di libreria", ovvero che verranno usati da
+ * tutto il S.O. per la gestione dei processi, dobbiamo assicurarci l'integrità
+ * dei parametri passati
+ */
 
+// lista dei figli:
+//  1) p_child del padre funge da elemento sentinella
+//  2) i figli sono collegati fra loro dai puntatori p_sib
 int emptyChild(pcb_t *p) {
-  if(p == NULL) // <- serve davvero o abbiamo garanzia p != NULL?
+  if (p == NULL) // <- serve davvero o abbiamo garanzia p != NULL?
     return 1;
-  
-  return list_empty( &p->p_child ); // p.p_child è la testa della lista
+
+  return list_empty(&p->p_child); // p.p_child è la testa della lista
 }
 
 void insertChild(pcb_t *prnt, pcb_t *p) {
-  if(prnt == NULL || p == NULL) // ?
+  /*
+   * Leo: ho aggiunto guardie per verificare che *p non abbia già un parent e
+   * che NON sia già figlio di *prnt
+   */
+  if (prnt == NULL || p == NULL || p->p_parent != NULL ||
+      list_contains(&prnt->p_child, p)) // ?
     return;
-  
-  list_add_tail( &p->p_sib,&prnt->p_child );
+
+  list_add_tail(&p->p_sib, &prnt->p_child);
   p->p_parent = prnt;
 }
 
+/*
+ * Leo: Se noti quello che viene fatto su *sib, è lo stesso che farei chiamando
+ * direttamente il metodo outChild
+ */
 pcb_t *removeChild(pcb_t *p) {
+  if (p == NULL || emptyChild(p)) //?
+    return NULL;
+
+  return outChild(container_of(p->p_child.next, pcb_t, p_sib));
+
+  /*
   if(p == NULL) //?
     return NULL;
-  
+
   if( !emptyChild(p) ){
     struct list_head *sib = p->p_child.next; // = punta p_sib del primo figlio
     list_del(sib);
     INIT_LIST_HEAD(sib); //reinizializzo p_sib del figlio staccato
-    return container_of( sib, pcb_t, p_sib); // (puntatore al list_head della strutt, tipo strutt, nome list_head nella strutt)
+    return container_of( sib, pcb_t, p_sib); // (puntatore al list_head della
+  strutt, tipo strutt, nome list_head nella strutt)
   }
   else
     return NULL;
+  */
 }
 
+/*
+ * Leo: ho sistemato le guardie, se noti il controllo 'p->p_parent != NULL' può
+ * essere portato in cima
+ */
 pcb_t *outChild(pcb_t *p) {
+  if (p == NULL || p->p_parent == NULL || emptyChild(p->p_parent))
+    return NULL;
+
+  list_del(&p->p_sib);
+  p->p_parent = NULL;
+  INIT_LIST_HEAD(&p->p_sib);
+  return p;
+
+  /*
   if(p == NULL) //?
     return NULL;
-    
+
   if( p->p_parent != NULL){
     list_del(&p->p_sib);
     p->p_parent = NULL;
@@ -174,4 +209,5 @@ pcb_t *outChild(pcb_t *p) {
   }
   else
     return NULL;
+  */
 }
