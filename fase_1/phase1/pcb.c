@@ -1,5 +1,4 @@
 #include "./headers/pcb.h"
-#include "../klog.c"
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
@@ -39,7 +38,6 @@ void freePcb(pcb_t *p) {
   list_del(&p->p_list);
 
   // 2. lo aggiungo a pcbFree
-  // NOTA: non serve aggiungere in fondo perché pcbFree non è una coda
   list_add(&p->p_list, &pcbFree_h);
 }
 

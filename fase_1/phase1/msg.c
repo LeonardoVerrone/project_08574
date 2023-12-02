@@ -13,9 +13,9 @@ void initMsgs() {
 }
 
 void freeMsg(msg_t *m) {
-  if(m == NULL)
+  if (m == NULL)
     return;
-  
+
   // devo rimuoverlo dalla coda dei msg del pcb a cui appartiene(pcb.msg_inbox)
   list_del(&m->m_list);
   // e aggiungerlo ai msg liberi
@@ -23,37 +23,33 @@ void freeMsg(msg_t *m) {
 }
 
 msg_t *allocMsg() {
-  if( list_empty(&msgFree_h) )
+  if (list_empty(&msgFree_h))
     return NULL;
-  
+
   msg_t *m = container_of(msgFree_h.next, msg_t, m_list);
   list_del(msgFree_h.next);
-  
-  //inizializzo
+
+  // inizializzo
   INIT_LIST_HEAD(&m->m_list);
   m->m_sender = NULL;
   m->m_payload = 0;
-  
+
   return m;
 }
 
 void mkEmptyMessageQ(struct list_head *head) {
-  /*
   if (head == NULL) {
     return;
   }
 
   INIT_LIST_HEAD(head);
-  */
-  // DUBBIO->DICE: Used to initialize a variable to be head pointer to a message queque; RETURNS a pointer to the head of an empty message queque, i.e. NULL
-  // => come fa anche solo a ritornare qualsosa???
 }
 
 int emptyMessageQ(struct list_head *head) {
   if (head == NULL)
     return 1;
-  else
-    return list_empty(head);
+
+  return list_empty(head);
 }
 
 void insertMessage(struct list_head *head, msg_t *m) {
@@ -67,17 +63,54 @@ void pushMessage(struct list_head *head, msg_t *m) {
   if (head == NULL || m == NULL)
     return;
 
-  list_add(&m->m_list, head); //aggiunge in testa
+  list_add(&m->m_list, head); // aggiunge in testa
 }
 
+/*
+ * Leo: ho sistemato questo metodo perché da consegna deve restituire il primo
+ * messaggio che abbia come parent il pcb specificato.
+ */
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
-  if ( head == NULL || list_empty(head) || list_empty(&p_ptr->msg_inbox) )
+  /*
+   * Leo: ho rimosso il controllo se il processo parent ha messaggi in inbox
+   * perché falliva un test. Se vedi dentro al file p1test.c a riga 312 lui
+   * prepara il messaggio e il pcb parent, ma a quest'ultimo non metto il
+   * messaggio in inbox
+   */
+  // if (head == NULL || list_empty(head) || list_empty(&p_ptr->msg_inbox))
+  if (head == NULL || list_empty(head))
     return NULL;
 
-  msg_t *m = container_of(head->next, msg_t, m_list);
-  list_del(head->next);
-  return m;
+  // Leo: da requisiti se il parent e NULL restituisco il primo messaggio della
+  // coda
+  if (p_ptr == NULL)
+    return container_of(head->next, msg_t, m_list);
+
+  // Leo: faccio la ricerca del messaggio che ha come sender il pcb passato
+  struct list_head *iter;
+  struct list_head *to_pop = NULL;
+  list_for_each(iter, head) {
+    msg_t *m = container_of(iter, msg_t, m_list);
+    if (m->m_sender == p_ptr) {
+      to_pop = iter;
+      break;
+    }
+  }
+
+  // Leo: da requisiti, se non trovo nessun messaggio con sender = p_ptr allora
+  // restituisco NULL
+  if (to_pop == NULL)
+    return NULL;
+
+  msg_t *result = container_of(iter, msg_t, m_list);
+  list_del(iter->next);
+  return result;
 }
 
 msg_t *headMessage(struct list_head *head) {
+  if (head == NULL || list_empty(head)) {
+    return NULL;
+  }
+
+  return container_of(head->next, msg_t, m_list);
 }
