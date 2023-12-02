@@ -81,29 +81,32 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   if (head == NULL || list_empty(head))
     return NULL;
 
-  // Leo: da requisiti se il parent e NULL restituisco il primo messaggio della
+  // Leo: da requisiti se il parent è NULL restituisco il primo messaggio della
   // coda
-  if (p_ptr == NULL)
+  if (p_ptr == NULL){
+    // list_del(head->next); Luca: perché se viene rimosso dà errore? non dovrebbe essere un "pop"?
     return container_of(head->next, msg_t, m_list);
+  }
 
   // Leo: faccio la ricerca del messaggio che ha come sender il pcb passato
   struct list_head *iter;
-  struct list_head *to_pop = NULL;
-  list_for_each(iter, head) {
+  int found = 0;
+  list_for_each(iter, head) { //cicla sulla lista di head, aggiornando iter
     msg_t *m = container_of(iter, msg_t, m_list);
     if (m->m_sender == p_ptr) {
-      to_pop = iter;
+      found = 1;
       break;
     }
   }
 
   // Leo: da requisiti, se non trovo nessun messaggio con sender = p_ptr allora
   // restituisco NULL
-  if (to_pop == NULL)
+  if (found == 0)
     return NULL;
 
   msg_t *result = container_of(iter, msg_t, m_list);
-  list_del(iter->next);
+  //list_del(iter->next);
+  list_del(iter); // Luca: devo rimuovere iter, non l'elemento successivo
   return result;
 }
 
