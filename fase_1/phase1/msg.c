@@ -84,7 +84,7 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   // Leo: da requisiti se il parent è NULL restituisco il primo messaggio della
   // coda
   if (p_ptr == NULL){
-    // list_del(head->next); Luca: perché se viene rimosso dà errore? non dovrebbe essere un "pop"?
+    // list_del(head->next); Luca: controllare rimozione
     return container_of(head->next, msg_t, m_list);
   }
 
@@ -101,7 +101,7 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
 
   // Leo: da requisiti, se non trovo nessun messaggio con sender = p_ptr allora
   // restituisco NULL
-  if (found == 0)
+  if (!found)
     return NULL;
 
   msg_t *result = container_of(iter, msg_t, m_list);
