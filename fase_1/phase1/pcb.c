@@ -1,4 +1,5 @@
 #include "./headers/pcb.h"
+#include <stdlib.h>
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
@@ -26,6 +27,8 @@ void initPcbs() {
   for (int i = 0; i < MAXPROC; i++) {
     // aggiungo a pcbFree il p_list di ogni pcb
     list_add(&pcbTable[i].p_list, &pcbFree_h);
+    //inoltre inizializzo p_supportStruct
+    pcbTable[i].p_supportStruct = malloc(sizeof(support_t));
   }
 }
 
@@ -39,6 +42,36 @@ void freePcb(pcb_t *p) {
 
   // 2. lo aggiungo a pcbFree
   list_add(&p->p_list, &pcbFree_h);
+}
+
+void initState(state_t *p_s){
+  p_s->entry_hi = 0;
+  p_s->cause = 0;
+  p_s->status = 0;
+  p_s->pc_epc = 0;
+  for(int i=0; i<STATE_GPR_LEN; i++){
+    p_s->gpr[i] = 0;
+  }
+  p_s->hi = 0;
+  p_s->lo = 0;
+}
+/* //prima versione
+void initState(pcb_t p){
+  p->p_s.entry_hi = 0;
+  p->p_s.cause = 0;
+  p->p_s.status = 0;
+  p->p_s.pc_epc = 0;
+  for(int i=0; i<STATE_GPR_LEN; i++){
+    p->p_s.gpr[i] = 0;
+  }
+  p->p_s.hi = 0;
+  p->p_s.lo = 0;
+}
+*/
+void initContext(context_t *sup_exeptContext){
+  sup_exeptContext->stackPtr = 0;
+  sup_exeptContext->status = 0;
+  sup_exeptContext->pc = 0;
 }
 
 pcb_t *allocPcb() {
@@ -58,15 +91,30 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->p_sib);
 
   // init process status information
-  // TODO: processor state (non ho trovato neanche la dichiarazione di state_t)
+  // TODO: controllo? => processor state è un tipo di umps3, si trova sulla pagina github di umps3 in umps3/src/support/libumps/tipes.h
+  initState(&p->p_s); // per p->p_s
   p->p_time = 0;
 
   // init message queue
   INIT_LIST_HEAD(&p->msg_inbox);
 
   // init pointer to the support struct
-  // TODO: non ho capito cosa sia
-
+  // TODO: sono incerto se per iniziializzarlo basti definire una nuova struttura
+  free(p->p_supportStruct);
+  p->p_supportStruct = malloc(sizeof(support_t)); //elimina tracce processo precedente, per miglior inizializzazione...
+  {//inizializziamo un po' meglio(forse)
+    p->p_supportStruct->sup_asid = 0;
+    initState(&p->p_supportStruct->sup_exceptState[0]);
+    initState(&p->p_supportStruct->sup_exceptState[1]);
+    initContext(&p->p_supportStruct->sup_exceptContext[0]);
+    initContext(&p->p_supportStruct->sup_exceptContext[1]);
+    for(int i=0; i<USERPGTBLSIZE; i++){
+      p->p_supportStruct->sup_privatePgTbl[i].pte_entryHI = 0;
+      p->p_supportStruct->sup_privatePgTbl[i].pte_entryLO = 0;
+    }
+    INIT_LIST_HEAD(&p->p_supportStruct->s_list);
+  }
+  
   // init pid
   p->p_pid = 0;
 
