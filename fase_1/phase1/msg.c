@@ -84,7 +84,7 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   // Leo: da requisiti se il parent è NULL restituisco il primo messaggio della
   // coda
   if (p_ptr == NULL){
-    // list_del(head->next); Luca: controllare rimozione
+    list_del(head->next); //Luca: va rimosso
     return container_of(head->next, msg_t, m_list);
   }
 
