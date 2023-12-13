@@ -105,8 +105,7 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
     return NULL;
 
   msg_t *result = container_of(iter, msg_t, m_list);
-  //list_del(iter->next);
-  list_del(iter); // Luca: devo rimuovere iter, non l'elemento successivo
+  list_del(iter);
   return result;
 }
 
