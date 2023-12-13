@@ -84,8 +84,9 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   // Leo: da requisiti se il parent è NULL restituisco il primo messaggio della
   // coda
   if (p_ptr == NULL){
+    struct list_head *tmp = head->next; //ecco perché dava errore
     list_del(head->next); //Luca: va rimosso
-    return container_of(head->next, msg_t, m_list);
+    return container_of(tmp, msg_t, m_list);
   }
 
   // Leo: faccio la ricerca del messaggio che ha come sender il pcb passato

@@ -27,8 +27,6 @@ void initPcbs() {
   for (int i = 0; i < MAXPROC; i++) {
     // aggiungo a pcbFree il p_list di ogni pcb
     list_add(&pcbTable[i].p_list, &pcbFree_h);
-    //inoltre inizializzo p_supportStruct
-    pcbTable[i].p_supportStruct = malloc(sizeof(support_t));
   }
 }
 
@@ -100,8 +98,8 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->msg_inbox);
 
   // init pointer to the support struct
-  free(p->p_supportStruct);
-  p->p_supportStruct = malloc(sizeof(support_t)); //elimina tracce processo precedente, per miglior inizializzazione...vediamo fase 2
+  //free(p->p_supportStruct); DERRORE UNDEFINED REFERENCE TO FREE
+  p->p_supportStruct = NULL; //elimina tracce processo precedente, per miglior inizializzazione...vediamo fase 2
   
   // init pid
   p->p_pid = 0;
@@ -186,6 +184,7 @@ pcb_t *removeChild(pcb_t *p) {
     return NULL;
 
   return outChild(container_of(p->p_child.next, pcb_t, p_sib));
+  // in pratica passo il primo figlio a una funzione che lo riimuove dalla lista di cui è figlio
 }
 
 pcb_t *outChild(pcb_t *p) {
