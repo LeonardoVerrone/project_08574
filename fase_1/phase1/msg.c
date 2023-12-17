@@ -17,7 +17,7 @@ void freeMsg(msg_t *m) {
     return;
 
   // devo rimuoverlo dalla coda dei msg del pcb a cui appartiene(pcb.msg_inbox)
-  list_del(&m->m_list); //nota: non fa danni anche se m non è in una coda
+  list_del(&m->m_list); // nota: non fa danni anche se m non è in una coda
   // e aggiungerlo ai msg liberi
   list_add(&m->m_list, &msgFree_h);
 }
@@ -25,7 +25,7 @@ void freeMsg(msg_t *m) {
 msg_t *allocMsg() {
   if (list_empty(&msgFree_h))
     return NULL;
-  
+
   // recupero msg in cima alla lista dei msg liberi e lo rimuovo dalla lista
   msg_t *m = container_of(msgFree_h.next, msg_t, m_list);
   list_del(msgFree_h.next);
@@ -46,7 +46,7 @@ void mkEmptyMessageQ(struct list_head *head) {
   INIT_LIST_HEAD(head);
 }
 
-int emptyMessageQ(struct list_head *head) { //ritorna 1 se la lista è vuota
+int emptyMessageQ(struct list_head *head) { // ritorna 1 se la lista è vuota
   if (head == NULL)
     return 1;
 
@@ -68,28 +68,20 @@ void pushMessage(struct list_head *head, msg_t *m) { // aggiunge in testa
 }
 
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
-  /*
-   * Leo: ho rimosso il controllo se il processo parent ha messaggi in inbox
-   * perché falliva un test. Se vedi dentro al file p1test.c a riga 312 lui
-   * prepara il messaggio e il pcb parent, ma a quest'ultimo non metto il
-   * messaggio in inbox
-   */
-  // if (head == NULL || list_empty(head) || list_empty(&p_ptr->msg_inbox))
   if (head == NULL || list_empty(head))
     return NULL;
 
-  // Leo: da requisiti se il parent è NULL restituisco il primo messaggio della
-  // coda
-  if (p_ptr == NULL){
-    struct list_head *tmp = head->next; //ecco perché dava errore
-    list_del(head->next); //Luca: va rimosso
+  // se vero faccio pop dell'head
+  if (p_ptr == NULL) {
+    struct list_head *tmp = head->next;
+    list_del(head->next);
     return container_of(tmp, msg_t, m_list);
   }
 
-  // Leo: faccio la ricerca del messaggio che ha come sender il pcb passato
+  // cerco messaggio che ha p_ptr come sender
   struct list_head *iter;
   int found = 0;
-  list_for_each(iter, head) { //cicla sulla lista di head, aggiornando iter
+  list_for_each(iter, head) {
     msg_t *m = container_of(iter, msg_t, m_list);
     if (m->m_sender == p_ptr) {
       found = 1;
@@ -97,8 +89,6 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
     }
   }
 
-  // Leo: da requisiti, se non trovo nessun messaggio con sender = p_ptr allora
-  // restituisco NULL
   if (!found)
     return NULL;
 
