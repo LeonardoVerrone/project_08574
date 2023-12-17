@@ -1,12 +1,12 @@
 #include "./headers/pcb.h"
-#include <stdlib.h>
+// #include <stdlib.h> tanto free da errore, quindi non mi serve
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
 static int next_pid = 1;
 
-static struct list_head *list_search(const struct list_head *head,
-                                     const pcb_t *p) {
+static struct list_head *list_search(const struct list_head *head, const pcb_t *p){
+  // funzione di supporto per trovare il puntatore alla list_head di un pcb
   struct list_head *iter;
   list_for_each(iter, head) {
     if (iter == &p->p_list) {
@@ -35,7 +35,7 @@ void freePcb(pcb_t *p) {
     return;
 
   // devo inserire p in pcbFree_h
-  // 1. elimino la coda dei processi
+  // 1. lo elimino dalla coda dei processi
   list_del(&p->p_list);
 
   // 2. lo aggiungo a pcbFree
@@ -43,6 +43,7 @@ void freePcb(pcb_t *p) {
 }
 
 void initState(state_t *p_s){
+  // per inizializzare una variabile state_t (in fase 2 potrebbero essere necessarie modifiche)
   p_s->entry_hi = 0;
   p_s->cause = 0;
   p_s->status = 0;
@@ -53,25 +54,6 @@ void initState(state_t *p_s){
   p_s->hi = 0;
   p_s->lo = 0;
 }
-
-/*void initContext(context_t *sup_exeptContext){ //per ora non sappiamo se sia corretto, vediamo nella fase 2
-  sup_exeptContext->stackPtr = 0;
-  sup_exeptContext->status = 0;
-  sup_exeptContext->pc = 0;
-}
-{//possibile inizazione di supportStruct(da inserire in allocPcb)
-  p->p_supportStruct->sup_asid = 0;
-  initState(&p->p_supportStruct->sup_exceptState[0]);
-  initState(&p->p_supportStruct->sup_exceptState[1]);
-  initContext(&p->p_supportStruct->sup_exceptContext[0]);
-  initContext(&p->p_supportStruct->sup_exceptContext[1]);
-  for(int i=0; i<USERPGTBLSIZE; i++){
-    p->p_supportStruct->sup_privatePgTbl[i].pte_entryHI = 0;
-    p->p_supportStruct->sup_privatePgTbl[i].pte_entryLO = 0;
-  }
-  INIT_LIST_HEAD(&p->p_supportStruct->s_list);
-}
-*/
 
 pcb_t *allocPcb() {
   if (list_empty(&pcbFree_h)) // se la lista è vuota
@@ -98,8 +80,8 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->msg_inbox);
 
   // init pointer to the support struct
-  //free(p->p_supportStruct); DERRORE UNDEFINED REFERENCE TO FREE
-  p->p_supportStruct = NULL; //elimina tracce processo precedente, per miglior inizializzazione...vediamo fase 2
+  // free(p->p_supportStruct); DA' ERRORE UNDEFINED REFERENCE TO FREE -> rischio MEMORY LEAK?
+  p->p_supportStruct = NULL; // da specifiche fase 2 sembra dover andare a NULL, ma non rischio memory leak senza free?
   
   // init pid
   p->p_pid = 0;
@@ -115,7 +97,7 @@ void mkEmptyProcQ(struct list_head *head) {
   INIT_LIST_HEAD(head);
 }
 
-int emptyProcQ(struct list_head *head) {
+int emptyProcQ(struct list_head *head) { // ritorna 1 se lista è vuota
   if (head == NULL) {
     return 1;
   }
@@ -123,7 +105,7 @@ int emptyProcQ(struct list_head *head) {
   return list_empty(head);
 }
 
-void insertProcQ(struct list_head *head, pcb_t *p) {
+void insertProcQ(struct list_head *head, pcb_t *p) { // in coda
   if (head == NULL || p == NULL) {
     return;
   }
@@ -131,7 +113,7 @@ void insertProcQ(struct list_head *head, pcb_t *p) {
   list_add_tail(&p->p_list, head);
 }
 
-pcb_t *headProcQ(struct list_head *head) {
+pcb_t *headProcQ(struct list_head *head) { // ritorna primo pcb
   if (head == NULL || list_empty(head)) {
     return NULL;
   }
@@ -139,7 +121,7 @@ pcb_t *headProcQ(struct list_head *head) {
   return container_of(head->next, pcb_t, p_list);
 }
 
-pcb_t *removeProcQ(struct list_head *head) {
+pcb_t *removeProcQ(struct list_head *head) { // in testa
   if (head == NULL || list_empty(head)) {
     return NULL;
   }
@@ -149,9 +131,8 @@ pcb_t *removeProcQ(struct list_head *head) {
   return p;
 }
 
-pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
-  if (head == NULL || p == NULL || list_empty(head) ||
-      !list_contains(head, p)) {
+pcb_t *outProcQ(struct list_head *head, pcb_t *p) { // rimuove p
+  if (head == NULL || p == NULL || list_empty(head) || !list_contains(head, p)) {
     return NULL;
   }
 
@@ -170,7 +151,7 @@ int emptyChild(pcb_t *p) {
   return list_empty(&p->p_child); // p.p_child è la testa della lista
 }
 
-void insertChild(pcb_t *prnt, pcb_t *p) {
+void insertChild(pcb_t *prnt, pcb_t *p) { // in coda
   if (prnt == NULL || p == NULL || p->p_parent != NULL ||
       list_contains(&prnt->p_child, p)) // ?
     return;
@@ -179,15 +160,15 @@ void insertChild(pcb_t *prnt, pcb_t *p) {
   p->p_parent = prnt;
 }
 
-pcb_t *removeChild(pcb_t *p) {
-  if (p == NULL || emptyChild(p)) //?
+pcb_t *removeChild(pcb_t *p) { // disereda il primo figlio
+  if (p == NULL || emptyChild(p))
     return NULL;
 
   return outChild(container_of(p->p_child.next, pcb_t, p_sib));
-  // in pratica passo il primo figlio a una funzione che lo riimuove dalla lista di cui è figlio
+  // in pratica passo il primo figlio a una funzione che lo rimuove dalla lista del padre
 }
 
-pcb_t *outChild(pcb_t *p) {
+pcb_t *outChild(pcb_t *p) { // p non è più figlio di suo padre
   if (p == NULL || p->p_parent == NULL || emptyChild(p->p_parent))
     return NULL;
 

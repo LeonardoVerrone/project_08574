@@ -17,7 +17,7 @@ void freeMsg(msg_t *m) {
     return;
 
   // devo rimuoverlo dalla coda dei msg del pcb a cui appartiene(pcb.msg_inbox)
-  list_del(&m->m_list);
+  list_del(&m->m_list); //nota: non fa danni anche se m non è in una coda
   // e aggiungerlo ai msg liberi
   list_add(&m->m_list, &msgFree_h);
 }
@@ -25,11 +25,12 @@ void freeMsg(msg_t *m) {
 msg_t *allocMsg() {
   if (list_empty(&msgFree_h))
     return NULL;
-
+  
+  // recupero msg in cima alla lista dei msg liberi e lo rimuovo dalla lista
   msg_t *m = container_of(msgFree_h.next, msg_t, m_list);
   list_del(msgFree_h.next);
 
-  // inizializzo
+  // inizializzo msg
   INIT_LIST_HEAD(&m->m_list);
   m->m_sender = NULL;
   m->m_payload = 0;
@@ -45,31 +46,27 @@ void mkEmptyMessageQ(struct list_head *head) {
   INIT_LIST_HEAD(head);
 }
 
-int emptyMessageQ(struct list_head *head) {
+int emptyMessageQ(struct list_head *head) { //ritorna 1 se la lista è vuota
   if (head == NULL)
     return 1;
 
   return list_empty(head);
 }
 
-void insertMessage(struct list_head *head, msg_t *m) {
+void insertMessage(struct list_head *head, msg_t *m) { // in coda
   if (head == NULL || m == NULL)
     return;
 
   list_add_tail(&m->m_list, head);
 }
 
-void pushMessage(struct list_head *head, msg_t *m) {
+void pushMessage(struct list_head *head, msg_t *m) { // aggiunge in testa
   if (head == NULL || m == NULL)
     return;
 
-  list_add(&m->m_list, head); // aggiunge in testa
+  list_add(&m->m_list, head);
 }
 
-/*
- * Leo: ho sistemato questo metodo perché da consegna deve restituire il primo
- * messaggio che abbia come parent il pcb specificato.
- */
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   /*
    * Leo: ho rimosso il controllo se il processo parent ha messaggi in inbox
