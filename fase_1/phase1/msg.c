@@ -16,9 +16,7 @@ void freeMsg(msg_t *m) {
   if (m == NULL)
     return;
 
-  // devo rimuoverlo dalla coda dei msg del pcb a cui appartiene(pcb.msg_inbox)
-  list_del(&m->m_list); // nota: non fa danni anche se m non è in una coda
-  // e aggiungerlo ai msg liberi
+  list_del(&m->m_list);
   list_add(&m->m_list, &msgFree_h);
 }
 
@@ -71,8 +69,8 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
   if (head == NULL || list_empty(head))
     return NULL;
 
-  // se vero faccio pop dell'head
   if (p_ptr == NULL) {
+    // faccio pop dell'head
     struct list_head *tmp = head->next;
     list_del(head->next);
     return container_of(tmp, msg_t, m_list);

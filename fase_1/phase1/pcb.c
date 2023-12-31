@@ -1,12 +1,10 @@
 #include "./headers/pcb.h"
-// #include <stdlib.h> tanto free da errore, quindi non mi serve
-
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
-static int next_pid = 1;
 
-static struct list_head *list_search(const struct list_head *head, const pcb_t *p){
-  // funzione di supporto per trovare il puntatore alla list_head di un pcb
+// funzione di supporto per trovare il puntatore al list_head di un pcb
+static struct list_head *list_search(const struct list_head *head,
+                                     const pcb_t *p) {
   struct list_head *iter;
   list_for_each(iter, head) {
     if (iter == &p->p_list) {
@@ -16,6 +14,7 @@ static struct list_head *list_search(const struct list_head *head, const pcb_t *
   return NULL;
 }
 
+// riturna true solo il pcb è contenuto nella lista
 static inline int list_contains(const struct list_head *head, const pcb_t *p) {
   return list_search(head, p) != NULL;
 }
@@ -25,7 +24,6 @@ void initPcbs() {
   INIT_LIST_HEAD(&pcbFree_h);
 
   for (int i = 0; i < MAXPROC; i++) {
-    // aggiungo a pcbFree il p_list di ogni pcb
     list_add(&pcbTable[i].p_list, &pcbFree_h);
   }
 }
@@ -42,13 +40,14 @@ void freePcb(pcb_t *p) {
   list_add(&p->p_list, &pcbFree_h);
 }
 
-void initState(state_t *p_s){
-  // per inizializzare una variabile state_t (in fase 2 potrebbero essere necessarie modifiche)
+void initState(state_t *p_s) {
+  // per inizializzare una variabile state_t (in fase 2 potrebbero essere
+  // necessarie modifiche)
   p_s->entry_hi = 0;
   p_s->cause = 0;
   p_s->status = 0;
   p_s->pc_epc = 0;
-  for(int i=0; i<STATE_GPR_LEN; i++){
+  for (int i = 0; i < STATE_GPR_LEN; i++) {
     p_s->gpr[i] = 0;
   }
   p_s->hi = 0;
@@ -72,7 +71,8 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->p_sib);
 
   // init process status information
-  // processor state è un tipo di umps3, si trova sulla pagina github di umps3 in umps3/src/support/libumps/tipes.h
+  // processor state è un tipo di umps3, si trova sulla pagina github di umps3
+  // in umps3/src/support/libumps/tipes.h
   initState(&p->p_s); // per p->p_s
   p->p_time = 0;
 
@@ -80,9 +80,11 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->msg_inbox);
 
   // init pointer to the support struct
-  // free(p->p_supportStruct); DA' ERRORE UNDEFINED REFERENCE TO FREE -> rischio MEMORY LEAK?
-  p->p_supportStruct = NULL; // da specifiche fase 2 sembra dover andare a NULL, ma non rischio memory leak senza free?
-  
+  // free(p->p_supportStruct); DA' ERRORE UNDEFINED REFERENCE TO FREE -> rischio
+  // MEMORY LEAK?
+  p->p_supportStruct = NULL; // da specifiche fase 2 sembra dover andare a NULL,
+                             // ma non rischio memory leak senza free?
+
   // init pid
   p->p_pid = 0;
 
@@ -132,7 +134,8 @@ pcb_t *removeProcQ(struct list_head *head) { // in testa
 }
 
 pcb_t *outProcQ(struct list_head *head, pcb_t *p) { // rimuove p
-  if (head == NULL || p == NULL || list_empty(head) || !list_contains(head, p)) {
+  if (head == NULL || p == NULL || list_empty(head) ||
+      !list_contains(head, p)) {
     return NULL;
   }
 
@@ -165,7 +168,8 @@ pcb_t *removeChild(pcb_t *p) { // disereda il primo figlio
     return NULL;
 
   return outChild(container_of(p->p_child.next, pcb_t, p_sib));
-  // in pratica passo il primo figlio a una funzione che lo rimuove dalla lista del padre
+  // in pratica passo il primo figlio a una funzione che lo rimuove dalla lista
+  // del padre
 }
 
 pcb_t *outChild(pcb_t *p) { // p non è più figlio di suo padre
