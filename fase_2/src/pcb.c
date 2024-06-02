@@ -1,10 +1,9 @@
-#include "./headers/pcb.h"
+#include "pcb.h"
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
 
 // funzione di supporto per trovare il puntatore al list_head di un pcb
-static struct list_head *list_search(const struct list_head *head,
-                                     const pcb_t *p) {
+struct list_head *list_search(const struct list_head *head, const pcb_t *p) {
   struct list_head *iter;
   list_for_each(iter, head) {
     if (iter == &p->p_list) {
@@ -14,9 +13,26 @@ static struct list_head *list_search(const struct list_head *head,
   return NULL;
 }
 
+// funzione di supporto per trovare il puntatore al list_head di un pcb
+struct list_head *list_search_by_pid(const struct list_head *head,
+                                     const int p_pid) {
+  struct list_head *iter;
+  list_for_each(iter, head) {
+    if (container_of(iter, pcb_t, p_list)->p_pid == p_pid) {
+      return iter;
+    }
+  }
+  return NULL;
+}
+
 // riturna true solo il pcb è contenuto nella lista
-static inline int list_contains(const struct list_head *head, const pcb_t *p) {
+inline int list_contains(const struct list_head *head, const pcb_t *p) {
   return list_search(head, p) != NULL;
+}
+
+// riturna true solo il pcb è contenuto nella lista
+inline int list_contains_pid(const struct list_head *head, const int p_pid) {
+  return list_search_by_pid(head, p_pid) != NULL;
 }
 
 void initPcbs() {
@@ -41,17 +57,15 @@ void freePcb(pcb_t *p) {
 }
 
 void initState(state_t *p_s) {
-  // per inizializzare una variabile state_t (in fase 2 potrebbero essere
-  // necessarie modifiche)
   p_s->entry_hi = 0;
   p_s->cause = 0;
   p_s->status = 0;
   p_s->pc_epc = 0;
+  p_s->hi = 0;
+  p_s->lo = 0;
   for (int i = 0; i < STATE_GPR_LEN; i++) {
     p_s->gpr[i] = 0;
   }
-  p_s->hi = 0;
-  p_s->lo = 0;
 }
 
 pcb_t *allocPcb() {
@@ -79,13 +93,7 @@ pcb_t *allocPcb() {
   // init message queue
   INIT_LIST_HEAD(&p->msg_inbox);
 
-  // init pointer to the support struct
-  // free(p->p_supportStruct); DA' ERRORE UNDEFINED REFERENCE TO FREE -> rischio
-  // MEMORY LEAK?
-  p->p_supportStruct = NULL; // da specifiche fase 2 sembra dover andare a NULL,
-                             // ma non rischio memory leak senza free?
-
-  // init pid
+  p->p_supportStruct = NULL;
   p->p_pid = 0;
 
   return p;

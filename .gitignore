@@ -1,4 +1,5 @@
-fase_1/kernel
-fase_1/*.umps
-fase_1/*.o
 **/*.o
+**/kernel
+**/*.umps
+
+**/.DS_Store

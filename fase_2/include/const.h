@@ -45,20 +45,17 @@
 
 #define ANYMESSAGE 0
 #define MSGNOGOOD -1
+#define DEST_NOT_EXIST -2
 #define SENDMESSAGE -1
 #define RECEIVEMESSAGE -2
 
-#define CREATEPROCESS -1
-#define TERMPROCESS   -2
-#define PASSEREN      -3
-#define VERHOGEN      -4
-#define DOIO          -5
-#define GETTIME       -6
-#define CLOCKWAIT     -7
-#define GETSUPPORTPTR -8
-#define GETPROCESSID  -9
-#define YIELD         -10
-
+#define CREATEPROCESS 1
+#define TERMPROCESS   2
+#define DOIO          3
+#define GETTIME       4
+#define CLOCKWAIT     5
+#define GETSUPPORTPTR 6
+#define GETPROCESSID  7
 
 /* Status register constants */
 #define ALLOFF      0x00000000

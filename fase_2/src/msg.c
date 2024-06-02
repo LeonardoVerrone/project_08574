@@ -1,4 +1,4 @@
-#include "./headers/msg.h"
+#include "msg.h"
 
 static msg_t msgTable[MAXMESSAGES];
 LIST_HEAD(msgFree_h);
