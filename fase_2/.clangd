@@ -1,0 +1,21 @@
+CompileFlags: 
+  Add: [ -I/usr/include/umps3, -I/home/leo/project_08574/fase_2/include]
+
+Diagnostics:
+  Suppress:
+    - "keyword_as_parameter"
+    - "pointer-to-int-cast"
+    - "c23-extensions"
+    - "unused-value"
+    - "int-to-pointer-cast"
+    - "deprecated-non-prototype"
+
+---
+If:
+  PathMatch: include/listx.h
+
+Diagnostics:
+  Suppress:
+    - "expected_type"
+    - "init_conversion_failed"
+

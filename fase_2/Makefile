@@ -14,7 +14,7 @@ else
 	UMPS3_DIR_PREFIX = /usr/local
 endif
 
-OBJS = libumps.o crtso.o src/p2test.o src/initial.o src/exceptions.o src/interrupts.o src/scheduler.o src/ssi.o src/pcb.o src/msg.o
+OBJS = libumps.o crtso.o src/p2test.o src/initial.o src/exceptions.o src/interrupts.o src/scheduler.o src/ssi.o src/pcb.o src/msg.o src/util.o
 
 UMPS3_DATA_DIR = $(UMPS3_DIR_PREFIX)/share/umps3
 UMPS3_INCLUDE_DIR = $(UMPS3_DIR_PREFIX)/include/umps3

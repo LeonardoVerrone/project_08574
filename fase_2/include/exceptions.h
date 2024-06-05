@@ -5,5 +5,6 @@
 
 void exceptionHandler();
 void syscallHandler();
+void initExceptionHandler();
 
 #endif // !EXCEPTIONS_HEADER

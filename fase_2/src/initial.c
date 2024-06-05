@@ -1,14 +1,17 @@
 #include "exceptions.h"
+
+#include "klog.c"
 #include "msg.h"
 #include "pcb.h"
 #include "scheduler.h"
 #include "ssi.h"
+#include "types.h"
 
+#include <umps/const.h>
 #include <umps/cp0.h>
 #include <umps/libumps.h>
 
-int process_count;
-int soft_block_count;
+int process_count, soft_block_count;
 pcb_t *current_process;
 // blocked PCBs
 
@@ -18,7 +21,12 @@ extern void test();
 
 struct list_head ready_queue;
 
-// extern void test();
+// TODO: to remove
+ssi_payload_t *create_process_payload;
+ssi_create_process_t *create_process_arg;
+
+pcb_t *waiting_for_IO[NUMBER_OF_DEVICES];
+struct list_head waiting_for_PC; // PCBs waiting for Pseudo-clock
 
 void uTLB_RefillHandler() {
   setENTRYHI(0x80000000);
@@ -43,30 +51,31 @@ int main() {
   soft_block_count = 0;
   current_process = NULL;
   mkEmptyProcQ(&ready_queue);
-
-  // TODO: init blocked PCBs
+  mkEmptyProcQ(&waiting_for_PC);
+  for (int i = 0; i < NUMBER_OF_DEVICES; i++)
+    waiting_for_IO[i] = NULL;
 
   reloadIntervalTimer();
 
   // init ssi
   ssi_pcb = allocPcb();
-  ssi_pcb->p_s.status |= STATUS_IEp | STATUS_IM_MASK; // enables interrupts
-  ssi_pcb->p_s.status |= STATUS_KUp;                  // kernel mode on
+  ssi_pcb->p_s.status = STATUS_IEp | STATUS_IM_MASK; // enables interrupts
   RAMTOP(ssi_pcb->p_s.reg_sp); // stack pointer points to RAMTOP
   ssi_pcb->p_s.pc_epc = ssi_pcb->p_s.reg_t9 = (memaddr)SSI_handler;
+  ssi_pcb->p_pid = ++process_count;
 
   insertProcQ(&ready_queue, ssi_pcb);
-  process_count++;
 
   pcb_t *second_p = allocPcb();
-  second_p->p_s.status |= STATUS_IEp | STATUS_IM_MASK;
-  second_p->p_s.status |= STATUS_KUp;
-  second_p->p_s.status |= STATUS_TE; // enables Local Timer
-  RAMTOP(second_p->p_s.reg_sp) - (2 * PAGESIZE);
+  second_p->p_s.status |= STATUS_IEc | STATUS_IEp | STATUS_IM_MASK | STATUS_TE;
+  RAMTOP(second_p->p_s.reg_sp);
+  second_p->p_s.reg_sp -= 2 * PAGESIZE;
   second_p->p_s.pc_epc = second_p->p_s.reg_t9 = (memaddr)test;
+  second_p->p_pid = ++process_count;
 
   insertProcQ(&ready_queue, second_p);
-  process_count++;
+
+  initExceptionHandler();
 
   schedule();
 

@@ -17,6 +17,7 @@
 
 #include "const.h"
 #include "types.h"
+#include "util.h"
 
 #include <umps/libumps.h>
 
@@ -122,8 +123,9 @@ void print() {
       SYSCALL(RECEIVEMESSAGE, (unsigned int)ssi_pcb, (unsigned int)(&status),
               0);
 
-      if ((status & TERMSTATMASK) != RECVD)
+      if ((status & TERMSTATMASK) != RECVD) {
         PANIC();
+      }
 
       s++;
     }
@@ -156,8 +158,16 @@ void terminate_process(pcb_t *arg) {
   SYSCALL(RECEIVEMESSAGE, (unsigned int)ssi_pcb, 0, 0);
 }
 
+// TODO: remove
+extern void klog_print_hex();
+extern void klog_print_dec();
+extern void klog_print();
+extern void next_line();
+extern ssi_payload_t *create_process_payload;
+extern ssi_create_process_t *create_process_arg;
+
 pcb_t *create_process(state_t *s) {
-  pcb_t *p;
+  pcb_t *p = NULL;
   ssi_create_process_t ssi_create_process = {
       .state = s,
       .support = NULL,
@@ -166,6 +176,9 @@ pcb_t *create_process(state_t *s) {
       .service_code = CREATEPROCESS,
       .arg = &ssi_create_process,
   };
+  s->status = 0x1;
+  ssi_create_process_t *arg = payload.arg;
+
   SYSCALL(SENDMESSAGE, (unsigned int)ssi_pcb, (unsigned int)&payload, 0);
   SYSCALL(RECEIVEMESSAGE, (unsigned int)ssi_pcb, (unsigned int)(&p), 0);
   return p;
@@ -195,8 +208,9 @@ void test() {
   // create print process
   print_pcb = create_process(&printstate);
 
-  if ((int)print_pcb == NOPROC)
+  if ((int)print_pcb == NOPROC) {
     PANIC();
+  }
 
   // test print process
   print_term0("Don't Panic.\n");

@@ -1,39 +1,8 @@
 #include "pcb.h"
+#include "util.h"
+
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
-
-// funzione di supporto per trovare il puntatore al list_head di un pcb
-struct list_head *list_search(const struct list_head *head, const pcb_t *p) {
-  struct list_head *iter;
-  list_for_each(iter, head) {
-    if (iter == &p->p_list) {
-      return iter;
-    }
-  }
-  return NULL;
-}
-
-// funzione di supporto per trovare il puntatore al list_head di un pcb
-struct list_head *list_search_by_pid(const struct list_head *head,
-                                     const int p_pid) {
-  struct list_head *iter;
-  list_for_each(iter, head) {
-    if (container_of(iter, pcb_t, p_list)->p_pid == p_pid) {
-      return iter;
-    }
-  }
-  return NULL;
-}
-
-// riturna true solo il pcb è contenuto nella lista
-inline int list_contains(const struct list_head *head, const pcb_t *p) {
-  return list_search(head, p) != NULL;
-}
-
-// riturna true solo il pcb è contenuto nella lista
-inline int list_contains_pid(const struct list_head *head, const int p_pid) {
-  return list_search_by_pid(head, p_pid) != NULL;
-}
 
 void initPcbs() {
   // inizializzo pcbFree_h
@@ -45,7 +14,7 @@ void initPcbs() {
 }
 
 void freePcb(pcb_t *p) {
-  if (p == NULL || list_contains(&pcbFree_h, p))
+  if (p == NULL || contains_pcb(&pcbFree_h, p))
     return;
 
   // devo inserire p in pcbFree_h
@@ -142,8 +111,7 @@ pcb_t *removeProcQ(struct list_head *head) { // in testa
 }
 
 pcb_t *outProcQ(struct list_head *head, pcb_t *p) { // rimuove p
-  if (head == NULL || p == NULL || list_empty(head) ||
-      !list_contains(head, p)) {
+  if (head == NULL || p == NULL || list_empty(head) || !contains_pcb(head, p)) {
     return NULL;
   }
 
@@ -162,9 +130,11 @@ int emptyChild(pcb_t *p) {
   return list_empty(&p->p_child); // p.p_child è la testa della lista
 }
 
-void insertChild(pcb_t *prnt, pcb_t *p) { // in coda
+/* inserisce in coda
+ */
+void insertChild(pcb_t *prnt, pcb_t *p) {
   if (prnt == NULL || p == NULL || p->p_parent != NULL ||
-      list_contains(&prnt->p_child, p)) // ?
+      contains_pcb(&prnt->p_child, p))
     return;
 
   list_add_tail(&p->p_sib, &prnt->p_child);
