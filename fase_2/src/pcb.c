@@ -1,8 +1,14 @@
 #include "pcb.h"
+#include "listx.h"
 #include "util.h"
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
+static int last_pid = 0;
+
+extern void klog_print_dec();
+extern void klog_print_hex();
+extern void klog_print();
 
 void initPcbs() {
   // inizializzo pcbFree_h
@@ -63,7 +69,7 @@ pcb_t *allocPcb() {
   INIT_LIST_HEAD(&p->msg_inbox);
 
   p->p_supportStruct = NULL;
-  p->p_pid = 0;
+  p->p_pid = ++last_pid;
 
   return p;
 }

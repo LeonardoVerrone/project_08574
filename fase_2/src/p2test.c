@@ -432,6 +432,7 @@ void test() {
   SYSCALL(SENDMESSAGE, (unsigned int)p9_pcb, START, 0);
   SYSCALL(RECEIVEMESSAGE, (unsigned int)p9_pcb, 0, 0);
   SYSCALL(RECEIVEMESSAGE, (unsigned int)p10_pcb, 0, 0);
+  bp();
 
   terminate_process(p9_pcb);
 
@@ -584,6 +585,7 @@ void p3() {
 
 /* p4 -- termination test process */
 void p4() {
+  // klog_print("p4 partito! ");
   switch (p4inc) {
   case 1:
     print_term0("first incarnation of p4 starts\n");
@@ -890,6 +892,7 @@ void p9() {
   /* create p10 */
   p10_pcb = create_process(&p10state);
   SYSCALL(SENDMESSAGE, (unsigned int)test_pcb, 0, 0);
+
   SYSCALL(RECEIVEMESSAGE, ANYMESSAGE, 0, 0);
 }
 

@@ -19,4 +19,7 @@ void insertChild(pcb_t *prnt, pcb_t *p);
 pcb_t *removeChild(pcb_t *p);
 pcb_t *outChild(pcb_t *p);
 
+// TODO: remove
+void print_list(struct list_head *head);
+
 #endif

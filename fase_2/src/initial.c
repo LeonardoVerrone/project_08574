@@ -11,6 +11,10 @@
 #include <umps/cp0.h>
 #include <umps/libumps.h>
 
+extern void klog_print_dec();
+extern void klog_print_hex();
+extern void klog_print();
+
 int process_count, soft_block_count;
 pcb_t *current_process;
 // blocked PCBs
@@ -62,7 +66,7 @@ int main() {
   ssi_pcb->p_s.status = STATUS_IEp | STATUS_IM_MASK; // enables interrupts
   RAMTOP(ssi_pcb->p_s.reg_sp); // stack pointer points to RAMTOP
   ssi_pcb->p_s.pc_epc = ssi_pcb->p_s.reg_t9 = (memaddr)SSI_handler;
-  ssi_pcb->p_pid = ++process_count;
+  process_count++;
 
   insertProcQ(&ready_queue, ssi_pcb);
 
@@ -71,13 +75,13 @@ int main() {
   RAMTOP(second_p->p_s.reg_sp);
   second_p->p_s.reg_sp -= 2 * PAGESIZE;
   second_p->p_s.pc_epc = second_p->p_s.reg_t9 = (memaddr)test;
-  second_p->p_pid = ++process_count;
+  process_count++;
 
   insertProcQ(&ready_queue, second_p);
 
   initExceptionHandler();
 
-  schedule();
+  schedule(NULL);
 
   return 0;
 }

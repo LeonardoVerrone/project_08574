@@ -1,8 +1,8 @@
 #include "interrupts.h"
+#include "listx.h"
 #include "msg.h"
 #include "pcb.h"
 #include "scheduler.h"
-#include "util.h"
 
 #include <umps/arch.h>
 #include <umps/cp0.h>
@@ -22,6 +22,7 @@
 extern int soft_block_count;
 extern pcb_t *ssi_pcb;
 extern struct list_head waiting_for_msg;
+extern struct list_head waiting_for_PC;
 extern pcb_t *waiting_for_IO[];
 extern void klog_print_dec();
 extern void klog_print_hex();
@@ -35,7 +36,7 @@ int infer_intline() {
 }
 
 /*
- * WARN: codice non testato, funziona per term0, ma da testare con
+ * WARN: funziona per term0, ma da testare con
  * altri device
  */
 int infer_dev_number(int intline) {
@@ -76,6 +77,23 @@ void ack_subdevice(unsigned int status, unsigned int *command, int dev_idx) {
   }
 }
 
+void handle(int interrupt_line) {
+  int dev_number = infer_dev_number(interrupt_line);
+
+  if (interrupt_line != 7 || dev_number != 0) {
+    // TODO: implementare comportamente per i rimanenti interrupt
+    return;
+  }
+  termreg_t *term0_reg = (termreg_t *)DEV_REG_ADDR(interrupt_line, dev_number);
+
+  int dev_idx = (interrupt_line - 3) * 8 + dev_number;
+  ack_subdevice(term0_reg->recv_status, &term0_reg->recv_command, dev_idx);
+  ack_subdevice(term0_reg->transm_status, &term0_reg->transm_command,
+                dev_idx + 8);
+
+  schedule(current_process);
+}
+
 // arrivo che ho già caricato lo stato di current_process
 void interruptHandler() {
   int interrupt_line = infer_intline();
@@ -88,35 +106,26 @@ void interruptHandler() {
     // ignoring
     break;
   case PLT_INT:
-    reloadTimeslice();
     insertProcQ(&(ready_queue), current_process);
-    current_process = NULL;
-    schedule();
+    schedule(NULL);
     break;
   case LOCALTIMER_INT:
+    pcb_t *iter;
+    while ((iter = removeProcQ(&waiting_for_PC)) != NULL) {
+      msg_t *msg = allocMsg();
+      if (msg != NULL) {
+        msg->m_sender = ssi_pcb;
+        insertMessage(&iter->msg_inbox, msg);
+        insertProcQ(&ready_queue, iter);
+        soft_block_count--;
+      }
+    }
     reloadIntervalTimer();
-    LDST(&(current_process->p_s));
+    schedule(current_process);
     break;
   default: // Non timer Interrupts
-    int dev_number = infer_dev_number(interrupt_line);
+    handle(interrupt_line);
 
-    if (interrupt_line != 7 || dev_number != 0) {
-      // TODO: implementare comportamente per i rimanenti interrupt
-      break;
-    }
-    termreg_t *term0_reg =
-        (termreg_t *)DEV_REG_ADDR(interrupt_line, dev_number);
-
-    int dev_idx = (interrupt_line - 3) * 8 + dev_number;
-    ack_subdevice(term0_reg->recv_status, &term0_reg->recv_command, dev_idx);
-    ack_subdevice(term0_reg->transm_status, &term0_reg->transm_command,
-                  dev_idx + 8);
-
-    if (current_process) {
-      LDST(&current_process->p_s);
-    } else {
-      schedule();
-    }
     break;
   }
 }
