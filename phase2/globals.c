@@ -11,6 +11,7 @@ pcb_t *current_process;
 struct list_head ready_queue;
 struct list_head waiting_for_PC;
 struct list_head waiting_for_msg;
+
 pcb_t *waiting_for_IO[NUMBER_OF_DEVICES];
 
 void init_globals() {

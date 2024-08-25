@@ -70,8 +70,8 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
     // se c'è già un altro pcb in attesa del device, mi metto "in attesa"
     // inviando una nuova richiesta DoIO all'ssi
 
-    // WARN: codice non testato in phas2 in quanto non ci sono casi di richieste
-    // "concorrenti"
+    // WARN: codice non testato in phase2 in quanto non ci sono casi di
+    // richieste "concorrenti"
     msg_t *msg = allocMsg();
     if (msg == NULL) {
       PANIC();
@@ -152,10 +152,13 @@ void SSI_handler() {
       SSI_get_cpu_time(sender);
       break;
     case CLOCKWAIT:
-      // TODO: domanda: non devo controllare anche waiting_for_IO?
-      // se era in attesa di messaggi lo tolgo e lo metto in attesa dello
-      // Pseudo-clock
-      outProcQ(&waiting_for_msg, sender);
+      // incremento il soft_block_count solo se il processo non ha ancora
+      // inviato la richiesta RECEIVEMESSAGE
+      if (outProcQ(&waiting_for_msg, sender) == NULL) {
+        soft_block_count++;
+      }
+      outProcQ(&ready_queue, sender);
+
       insertProcQ(&waiting_for_PC, sender);
       break;
     case GETSUPPORTPTR:
