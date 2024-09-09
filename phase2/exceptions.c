@@ -116,7 +116,7 @@ void syscallHandler() {
 }
 
 void exceptionHandler() {
-  // aggiorno il cpu_time di current_procesi current_processs, e copio lo stato
+  // aggiorno il cpu_time di current_proces, e copio lo stato
   // al momento della chiamata
   if (current_process) {
     updateCpuTime(current_process);
@@ -132,7 +132,7 @@ void exceptionHandler() {
   case EXC_TLBS:
     passUpOrDie(PGFAULTEXCEPT);
     break;
-  case 8:
+  case EXC_SYS:
     syscallHandler();
     break;
   default:

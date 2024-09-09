@@ -9,17 +9,19 @@
 
 #include <umps/const.h>
 
-#define NUMBER_OF_DEVICES (DEVINTNUM * DEVPERINT) + DEVINTNUM
+#define NUMBER_OF_DEVICES (DEVINTNUM * DEVPERINT) + DEVPERINT
 #define TERMSTATMASK 0xFF
 #define TERM_OKSTATUS 5
+#define PARENT 0
 
 /* Number of semaphore's device */
 #define SEMDEVLEN 49
 #define RECVD 5
 
 /* Hardware & software constants */
-#define PAGESIZE 4096 /* page size in bytes	*/
-#define WORDLEN 4     /* word size in bytes	*/
+#define PAGESIZE 4096  /* page size in bytes	*/
+#define FRAMESIZE 4096 /* page size in bytes	*/
+#define WORDLEN 4      /* word size in bytes	*/
 
 /* timer, timescale, TOD-LO and other bus regs */
 #define RAMBASEADDR 0x10000000
@@ -43,14 +45,17 @@
 
 /* Mikeyg Added constants */
 
-#define MAXPROC 40
-#define MAXMESSAGES 40
+#define MAXPROC 50
+#define MAXMESSAGES 50
 
 #define ANYMESSAGE 0
 #define MSGNOGOOD -1
 #define DEST_NOT_EXIST -2
 #define SENDMESSAGE -1
 #define RECEIVEMESSAGE -2
+
+#define SENDMSG 1
+#define RECEIVEMSG 2
 
 #define CREATEPROCESS 1
 #define TERMPROCESS 2
@@ -59,6 +64,11 @@
 #define CLOCKWAIT 5
 #define GETSUPPORTPTR 6
 #define GETPROCESSID 7
+
+#define GET_TOD 1
+#define TERMINATE 2
+#define WRITEPRINTER 3
+#define WRITETERMINAL 4
 
 /* Status register constants */
 #define ALLOFF 0x00000000
@@ -114,7 +124,7 @@
 #define OKCHARTRANS 5
 #define TRANSMITCHAR 2
 #define RECEIVECHAR 2 // aggiunta comando di ricezione del carattere
-#define PRINTCHR 2    // aggiunta comando di stampa del carattere
+#define PRINTCHAR 2   // aggiunta comando di stampa del carattere
 
 #define SEEKTOCYL 2
 #define DISKREAD 3

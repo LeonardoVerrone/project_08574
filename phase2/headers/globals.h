@@ -1,6 +1,8 @@
 #ifndef GLOBALS_HEADER
 #define GLOBALS_HEADER
 
+#include "devices.h"
+
 #include <listx.h>
 #include <types.h>
 

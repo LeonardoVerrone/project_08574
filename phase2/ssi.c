@@ -14,6 +14,10 @@
 
 #include <umps/libumps.h>
 
+extern void klog_print(char *);
+extern void klog_print_hex(unsigned int);
+extern void sst_handler();
+
 static inline void SSI_create_process(pcb_t *parent,
                                       ssi_create_process_t *arg) {
   pcb_t *new_pcb = allocPcb();
@@ -38,18 +42,14 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
   // partendo dal comando, ricavo la classe e il numero del device
   device_id_t device_id;
   get_device_id((unsigned int)arg->commandAddr, &device_id);
-  if (device_id.dev_class != 4 || device_id.dev_number != 0) {
-    // TODO: nelle prossime fasi implementare il comportamento anche per i
-    // device rimanenti
-    return;
-  }
 
   // trovo l'indice della "lista" di attesa del device
   int dev_idx = device_id.dev_class * 8 + device_id.dev_number;
-  if (compute_reg_address(device_id.dev_class, device_id.dev_number) +
-          3 * WORDLEN ==
-      (unsigned int)
-          arg->commandAddr) { // true iff the command is TRANSM command
+  if (device_id.dev_class == TERM_CLASS &&
+      compute_reg_address(device_id.dev_class, device_id.dev_number) +
+              3 * WORDLEN ==
+          (unsigned int)
+              arg->commandAddr) { // true iff the command is TRANSM command
     dev_idx += DEVPERINT;
   }
 
@@ -69,7 +69,6 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
   } else {
     // se c'è già un altro pcb in attesa del device, mi metto "in attesa"
     // inviando una nuova richiesta DoIO all'ssi
-
     // WARN: codice non testato in phase2 in quanto non ci sono casi di
     // richieste "concorrenti"
     msg_t *msg = allocMsg();
@@ -82,6 +81,7 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
     };
     msg->m_sender = sender;
     msg->m_payload = (unsigned int)&payload;
+    insertMessage(&ssi_pcb->msg_inbox, msg);
   }
 }
 

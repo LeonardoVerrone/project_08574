@@ -3,7 +3,7 @@
 
 #include <umps/const.h>
 
-#define NUMBER_OF_DEVICES (DEVINTNUM * DEVPERINT) + DEVINTNUM
+// #define NUMBER_OF_DEVICES (DEVINTNUM * DEVPERINT) + DEVINTNUM
 
 /*
  * Interrupt lines
@@ -14,9 +14,23 @@
 #define LOCALTIMER_INT 2
 #define DISKDEV_INT 3
 #define FLASHDEV_INT 4
-#define NETDEV_INT 5
+#define NETWDEV_INT 5
 #define PRINTERDEV_INT 6
 #define TERMDEV_INT 7
+
+/*
+ * Device classes
+ */
+#define DISK_CLASS 0
+#define FLASH_CLASS 1
+#define NETW_CLASS 2
+#define PRNT_CLASS 3
+#define TERM_CLASS 4
+
+/*
+ * Device STATUS codes
+ */
+#define DEVSTATUS_READY 1
 
 typedef struct device_id_t {
   int dev_class;

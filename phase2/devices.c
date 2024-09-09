@@ -1,5 +1,6 @@
 #include "headers/devices.h"
 
+#include <const.h>
 #include <umps/arch.h>
 #include <umps/cp0.h>
 #include <umps/libumps.h>
@@ -18,8 +19,6 @@ int get_intline_from_cause() {
 /*
  * Restituisce il numero di device che ha attivato l'interrupt sulla linea
  * indicata. Per farlo va conrollare la Interrupting Devices Bit Map
- *
- * WARN: funziona per term0, ma da testare con altri device
  */
 int get_dev_number(int intline) {
   unsigned int *line_address = (unsigned int *)CDEV_BITMAP_ADDR(intline);
