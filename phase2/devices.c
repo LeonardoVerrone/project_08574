@@ -13,6 +13,7 @@ int get_intline_from_cause() {
   for (int i = 0; i < NUMBER_OF_INTLINES; i++)
     if (getCAUSE() & CAUSE_IP(i))
       return i;
+  PANIC();
   return -1;
 }
 
@@ -27,6 +28,7 @@ int get_dev_number(int intline) {
       return i;
     }
   }
+  PANIC();
   return -1;
 }
 

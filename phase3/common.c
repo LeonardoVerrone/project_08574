@@ -58,6 +58,12 @@ unsigned int do_io(unsigned int *commandAddr, unsigned int commandValue) {
   return status;
 }
 
+/*
+ * Funzione dato il valore entry_hi restituisce la pagina mancante.
+ * NOTE: non viene restiuito l'indirizzo logico della pagina, bensì l'indirizzo
+ * fisico della pagina all'interno del backing store, che sarà quindi un valore
+ * da 0 a 31
+ */
 int get_missing_page(unsigned int entry_hi) {
   int missing_page = ENTRYHI_GET_VPN(entry_hi);
   if (missing_page > MAXPAGES) { // TRUE iff the missing page is the stack page

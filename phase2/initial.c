@@ -16,12 +16,18 @@
 extern pcb_t *test_pcb;
 extern void p3test();
 
+/*
+ * Funzione che gestisce gli eventi TLB-Refill. Questi avvengono durante la
+ * traduzione di un indirizzo logico non viene trovata una corrispondenza
+ * all'interno del TLB. Il gestore inserisce nel TLB l'entry della pagina
+ * richiesta cercandola nella Page Table del processo stesso:
+ */
 void uTLB_RefillHandler() {
   state_t *excp_state = (state_t *)BIOSDATAPAGE;
   support_t *excpt_sup = current_process->p_supportStruct;
 
-  unsigned int missing_page = get_missing_page(excp_state->entry_hi);
-  pteEntry_t *tlb_entry = &excpt_sup->sup_privatePgTbl[missing_page];
+  pteEntry_t *tlb_entry =
+      &excpt_sup->sup_privatePgTbl[get_missing_page(excp_state->entry_hi)];
 
   setENTRYHI(tlb_entry->pte_entryHI);
   setENTRYLO(tlb_entry->pte_entryLO);

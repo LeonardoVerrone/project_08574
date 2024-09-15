@@ -6,11 +6,10 @@
 extern pcb_t *current_process;
 extern struct list_head ready_queue;
 
-int is_pcb_waiting(pcb_t *pcb);
 void schedule(pcb_t *pcb);
 void updateCpuTime(pcb_t *pcb);
-
 void reloadIntervalTimer();
-void reloadTimeslice();
+
+int is_pcb_waiting(pcb_t *pcb);
 
 #endif // !SCHEDULER_HEADER

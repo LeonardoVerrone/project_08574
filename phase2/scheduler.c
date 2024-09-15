@@ -11,28 +11,13 @@
 #include <umps/libumps.h>
 
 unsigned long start_timer;
+static void reloadTimeslice();
 
-extern void klog_print(char *);
-extern void klog_print_hex(unsigned int);
-extern void klog_print_dec(unsigned int);
-
-void reloadIntervalTimer() { LDIT(PSECOND); }
-
-void reloadTimeslice() {
-  /* setTIMER(TIMESLICE); */
-  /* klog_print(", TIMESCALE: "); */
-  /* klog_print_hex((*(unsigned int *)TIMESCALEADDR)); */
-  /* klog_print(", TIMESCALEADDR * TIMESCALE: "); */
-  /* klog_print_hex(TIMESLICE * (*(int *)TIMESCALEADDR)); */
-  setTIMER(TIMESLICE * (*(int *)TIMESCALEADDR));
-}
-
-void updateCpuTime(pcb_t *pcb) {
-  unsigned long cur_time;
-  STCK(cur_time);
-  pcb->p_time += cur_time - start_timer;
-}
-
+/*
+ * Funzione che implementa il comportamento dello scheduler. Alla chiamata viene
+ * passato il puntatore del processo di cui fare lo schedule, se il puntatore è
+ * NULL allora prendo il processo di cui fare lo schedule dalla ready_queue.
+ */
 void schedule(pcb_t *pcb) {
   if (pcb == NULL) {
     current_process = removeProcQ(&ready_queue);
@@ -40,25 +25,66 @@ void schedule(pcb_t *pcb) {
     current_process = pcb;
   }
 
+  /*
+   * Se ho un processo di cui fare lo schedule lo faccio
+   */
   if (current_process) {
     STCK(start_timer);
+    /* Aggiorno la timeslice solo se current_process è stato preso dalla
+     * ready_queue */
     if (pcb == NULL) {
       reloadTimeslice();
     }
     LDST(&current_process->p_s);
-  } else {
-    if (process_count == 1 && is_pcb_waiting(ssi_pcb)) {
-      HALT();
-    } else if (process_count >= 1 && soft_block_count >= 1) {
-      setSTATUS(STATUS_IEc | STATUS_IM_MASK);
-      WAIT();
-    } else {
-      bp();
-      PANIC();
-    }
   }
+
+  /*
+   * Vero quando l'unico processo esistente è quello dell'SSI, e si trova in
+   * stato di attesa
+   */
+  if (process_count == 1 && is_pcb_waiting(ssi_pcb)) {
+    HALT();
+  }
+
+  /*
+   * Vero quando tutti i processi sono in attesa dello Pseudoclock o del
+   * completamento di un'operazione IO
+   */
+  if (process_count >= 1 && soft_block_count >= 1) {
+    setSTATUS(STATUS_IEc | STATUS_IM_MASK);
+    WAIT();
+  }
+
+  PANIC();
 }
 
+/*
+ * Funzione che aggiorna il tempo di CPU del processore viene fatta la
+ * differenza tra l'istante attuale con quello salvato quando è stato fatto lo
+ * schedule del processo.
+ */
+void updateCpuTime(pcb_t *pcb) {
+  unsigned long cur_time;
+  STCK(cur_time);
+  pcb->p_time += cur_time - start_timer;
+}
+
+/*
+ * Funzione che aggiorna lo Pseudoclock
+ */
+void reloadIntervalTimer() { LDIT(PSECOND); }
+
+/*
+ * Funzione che aggiorna il Processor Local Timer. Il valore TIMESLICE va
+ * moltiplicato per il valore Time Scale, ovvero quanti tick il processore
+ * esegue per microsecondo.
+ */
+static void reloadTimeslice() { setTIMER(TIMESLICE * (*(int *)TIMESCALEADDR)); }
+
+/*
+ * Restituisce TRUE sse il processo si trova in attesa dello Pseudoclock, o in
+ * attesa di un messagio, o in attesa del completamento di un'operazione IO.
+ */
 int is_pcb_waiting(pcb_t *p) {
   if (contains_pcb(&waiting_for_PC, p)) {
     return TRUE;

@@ -6,41 +6,72 @@
 #include "headers/globals.h"
 #include "headers/scheduler.h"
 
-#include <umps/arch.h>
 #include <umps/libumps.h>
-#include <umps/types.h>
 
-extern void klog_print(char *str);
-extern void klog_print_hex(unsigned int);
-extern void klog_print_dec(int);
+static void free_waitingIO_pcb(unsigned int, int);
+static void ack_device_interrupts(device_id_t);
 
-static void free_waitingIO_pcb(unsigned int status, int idx) {
-  // ricavo il chiamante, e lo sblocco
-  pcb_t *caller = waiting_for_IO[idx];
-  if (caller == NULL) {
-    return;
+/*
+ * Funzione che implementa il gestore degli interrupt. Viene chiamata dal
+ * gestore delle eccezioni, pertanto il processore si trova in modalità kernel
+ * con gli interrupt abbassati.
+ */
+void interruptHandler() {
+  int interrupt_line = get_intline_from_cause();
+
+  switch (interrupt_line) {
+  /*
+   * Interrupts inter processore, non faccio nulla per il momento.
+   */
+  case INTPROC_INT:
+    break;
+
+  /*
+   * Processor Local Timer interrupt, il processo corrente ha esaurito il tempo
+   * a lui dedicato per l'utilizzo della cpu. Deve quindi essere messo in stato
+   * READY per poi fare un reschedule.
+   */
+  case PLT_INT:
+    insertProcQ(&(ready_queue), current_process);
+    schedule(NULL);
+    break;
+
+  /*
+   * System-wide Local Timer, o Pseudoclock, è necessario risvegliare tutti i
+   * processi che erano in attesa dello psudoclock.
+   */
+  case LOCALTIMER_INT:
+    pcb_t *iter;
+    while ((iter = removeProcQ(&waiting_for_PC)) != NULL) {
+      msg_t *msg = allocMsg();
+      if (msg != NULL) {
+        msg->m_sender = ssi_pcb;
+        insertMessage(&iter->msg_inbox, msg);
+        insertProcQ(&ready_queue, iter);
+        soft_block_count--;
+      }
+    }
+    reloadIntervalTimer();
+    schedule(current_process);
+    break;
+
+  /*
+   * Non-timer interrupts, individuo il device che ha scatenato l'interrupt e
+   * faccio l'ACK.
+   */
+  default:
+    device_id_t dev_id = {.dev_class = interrupt_line - 3,
+                          .dev_number = get_dev_number(interrupt_line)};
+
+    ack_device_interrupts(dev_id);
+
+    schedule(current_process);
+    break;
   }
-  waiting_for_IO[idx] = NULL;
-
-  caller->p_s.reg_v0 = status & TERMSTATMASK;
-  msg_t *msg = allocMsg();
-  if (msg == NULL) {
-    PANIC();
-  }
-
-  // invio messaggio per sbloccare il chiamante
-  msg->m_sender = ssi_pcb;
-  msg->m_payload = status;
-  insertMessage(&caller->msg_inbox, msg);
-
-  // metto in chiamante nello stato 'ready'
-  outProcQ(&waiting_for_msg, caller);
-  insertProcQ(&ready_queue, caller);
-  soft_block_count--;
 }
 
 /*
- * Esegue l'ack del comando specificato.
+ * Funzione che esegue l'ACK dell'interrupt scatenato dal device specificato.
  * Si occupa sia di scrivere ACK nel registro del device in questione, che di
  * sbloccare il processo che era in attesa della risposta da parte del device.
  * della risposta da parte del device.
@@ -86,41 +117,37 @@ static void ack_device_interrupts(device_id_t dev_id) {
   }
 }
 
-// arrivo che ho già caricato lo stato di current_process
-void interruptHandler() {
-  int interrupt_line = get_intline_from_cause();
-  if (interrupt_line == -1) {
-    schedule(NULL);
-  }
-  switch (interrupt_line) {
-  case INTPROC_INT:
-    // ignoring
-    break;
-  case PLT_INT:
-    insertProcQ(&(ready_queue), current_process);
-    schedule(NULL);
-    break;
-  case LOCALTIMER_INT:
-    pcb_t *iter;
-    while ((iter = removeProcQ(&waiting_for_PC)) != NULL) {
-      msg_t *msg = allocMsg();
-      if (msg != NULL) {
-        msg->m_sender = ssi_pcb;
-        insertMessage(&iter->msg_inbox, msg);
-        insertProcQ(&ready_queue, iter);
-        soft_block_count--;
-      }
-    }
-    reloadIntervalTimer();
-    schedule(current_process);
-    break;
-  default: // Non timer Interrupts
-    device_id_t dev_id = {.dev_class = interrupt_line - 3,
-                          .dev_number = get_dev_number(interrupt_line)};
+/*
+ * Funzione che risveglia il processo che stava attendendo il completamento
+ * dell'operazione IO sul device che ha scatenato l'interrupt.
+ * Viene ricavato il processo chiamante interrogando l'array 'waiting_for_IO'
+ * presso l'indice del device che ha scatenato l'interrupt. Successivamente
+ * viene risvegliato tale processo e gli viene inviato un messaggio contente lo
+ * stato del device.
+ */
+static void free_waitingIO_pcb(unsigned int status, int idx) {
 
-    ack_device_interrupts(dev_id);
-
-    schedule(current_process);
-    break;
+  /*
+   * Ricavo il processo in attesa e lo risveglio
+   */
+  pcb_t *caller = waiting_for_IO[idx];
+  if (caller == NULL) {
+    PANIC();
   }
+  waiting_for_IO[idx] = NULL;
+  outProcQ(&waiting_for_msg, caller);
+  insertProcQ(&ready_queue, caller);
+  soft_block_count--;
+
+  /*
+   * Invio il messaggio e restituisco lo stato del device
+   */
+  msg_t *msg = allocMsg();
+  if (msg == NULL) {
+    PANIC();
+  }
+  msg->m_sender = ssi_pcb;
+  msg->m_payload = status;
+  insertMessage(&caller->msg_inbox, msg);
+  caller->p_s.reg_v0 = status & TERMSTATMASK;
 }

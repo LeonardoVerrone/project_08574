@@ -14,6 +14,9 @@ struct list_head waiting_for_msg;
 
 pcb_t *waiting_for_IO[NUMBER_OF_DEVICES];
 
+/*
+ * Funzione che inizializza le strutture di supporto al Nucleus
+ */
 void init_globals() {
   process_count = 0;
   soft_block_count = 0;

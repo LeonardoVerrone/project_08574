@@ -12,17 +12,11 @@
 
 extern pcb_t *ssi_pcb;
 
-extern void klog_print(char *);
-extern void klog_print_hex(unsigned int);
-extern void klog_print_dec(unsigned int);
-
 static pcb_t *create_uproc();
 static void print(int, int, sst_print_t *);
 
 void sst_handler() {
   pcb_t *uproc_pcb = create_uproc();
-  klog_print("->pcb:");
-  klog_print_hex((memaddr)uproc_pcb);
 
   while (TRUE) {
     ssi_payload_t *payload = NULL;
@@ -69,8 +63,6 @@ static pcb_t *create_uproc() {
   uproc_state.pc_epc = uproc_state.reg_t9 = UPROCSTARTADDR;
   uproc_state.status =
       ALLOFF | STATUS_KUp | STATUS_IEp | STATUS_IM_MASK | STATUS_TE;
-  klog_print(", ASID: ");
-  klog_print_dec(get_support_data()->sup_asid);
 
   return create_process(&uproc_state, get_support_data());
 }
