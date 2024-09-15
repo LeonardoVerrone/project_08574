@@ -4,15 +4,17 @@
 #include <const.h>
 #include <types.h>
 
-// TODO: serve sta roba?
-#define ENTRYHI_INIT 0x00000FC0 // no VPN, ASID set to -1
-#define ENTRYLO_INIT 0x00000500 // no PFN, D-bit and G-bit up
-
+#define SWAP_POOL_BASE 0x20020000
 #define SWAP_POOL_SIZE 2 * UPROCMAX
 
-extern pcb_t *swap_mutex;
+#define SW_ENTRY_UNUSED -1
+
+extern pcb_t *sw_mutex_pcb;
+extern pcb_t *mutex_holder;
 
 void initSwapStructs();
+
+void invalidate_uproc_frames(int);
 
 void swapMutexHandler();
 void TLB_ExceptHandler();

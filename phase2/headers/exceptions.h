@@ -7,6 +7,4 @@
 void exceptionHandler();
 
 void syscallHandler();
-void kill_process(pcb_t *p);
-
 #endif // !EXCEPTIONS_HEADER

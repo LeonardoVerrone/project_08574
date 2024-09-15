@@ -3,4 +3,6 @@
 
 void sup_ExceptionHandler();
 
+void programTrapHandler();
+
 #endif

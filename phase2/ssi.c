@@ -46,7 +46,7 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
   // trovo l'indice della "lista" di attesa del device
   int dev_idx = device_id.dev_class * 8 + device_id.dev_number;
   if (device_id.dev_class == TERM_CLASS &&
-      compute_reg_address(device_id.dev_class, device_id.dev_number) +
+      compute_devreg_addr(device_id.dev_class, device_id.dev_number) +
               3 * WORDLEN ==
           (unsigned int)
               arg->commandAddr) { // true iff the command is TRANSM command
@@ -69,8 +69,6 @@ static void SSI_doIO(pcb_t *sender, ssi_do_io_t *arg) {
   } else {
     // se c'è già un altro pcb in attesa del device, mi metto "in attesa"
     // inviando una nuova richiesta DoIO all'ssi
-    // WARN: codice non testato in phase2 in quanto non ci sono casi di
-    // richieste "concorrenti"
     msg_t *msg = allocMsg();
     if (msg == NULL) {
       PANIC();

@@ -15,7 +15,7 @@ else
 endif
 
 # OBJS = libumps.o crtso.o klog.o phase2/initial.o phase2/exceptions.o phase2/interrupts.o phase2/scheduler.o phase2/ssi.o phase2/devices.o phase2/globals.o phase2/util.o phase1/pcb.o phase1/msg.o 
-OBJS = libumps.o crtso.o klog.o phase3/initProc.o phase3/sst.o phase3/sysSupport.o phase3/vmSupport.o phase2/initial.o phase2/exceptions.o phase2/interrupts.o phase2/scheduler.o phase2/ssi.o phase2/devices.o phase2/globals.o phase2/util.o phase1/pcb.o phase1/msg.o 
+OBJS = libumps.o crtso.o klog.o phase3/initProc.o phase3/sst.o phase3/sysSupport.o phase3/vmSupport.o phase3/common.o phase2/initial.o phase2/exceptions.o phase2/interrupts.o phase2/scheduler.o phase2/ssi.o phase2/devices.o phase2/globals.o phase2/util.o phase1/pcb.o phase1/msg.o 
 
 UMPS3_DATA_DIR = $(UMPS3_DIR_PREFIX)/share/umps3
 UMPS3_INCLUDE_DIR = $(UMPS3_DIR_PREFIX)/include/umps3

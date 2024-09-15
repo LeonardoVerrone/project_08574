@@ -8,4 +8,5 @@ void memcpy(void *dest, const void *src, size_t size) {
     _dest[i] = _src[i];
   }
 }
+
 inline void bp() {}

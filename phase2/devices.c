@@ -40,7 +40,7 @@ void get_device_id(unsigned int command_address, device_id_t *device_id) {
     for (int dev_number = 0; dev_number < DEVPERINT; dev_number++) {
       if ((dev_class, dev_number) <= command_address &&
           command_address <=
-              compute_reg_address(dev_class, dev_number) + DEVREGSIZE) {
+              compute_devreg_addr(dev_class, dev_number) + DEVREGSIZE) {
         device_id->dev_class = dev_class;
         device_id->dev_number = dev_number;
         return;
@@ -54,9 +54,9 @@ void get_device_id(unsigned int command_address, device_id_t *device_id) {
  * classe-numero.
  *
  * NOTE: Come umps/arch.h#DEV_REG_ADD(line, dev), ma con la classe al posto
- * della linea
+ * della linea dell'interrupt
  */
-unsigned int compute_reg_address(int dev_class, int dev_number) {
+unsigned int compute_devreg_addr(int dev_class, int dev_number) {
   return DEV_REG_START + (dev_class * DEVREGSIZE * DEVPERINT) +
          (dev_number * DEVREGSIZE);
 }

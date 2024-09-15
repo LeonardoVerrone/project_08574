@@ -1,144 +1,69 @@
 #include "headers/vmSupport.h"
 
-#include "../phase2/headers/util.h"
+#include "../phase2/headers/devices.h"
+#include "headers/common.h"
+#include "headers/sysSupport.h"
 
-#include <const.h>
 #include <types.h>
 #include <umps/arch.h>
 #include <umps/cp0.h>
 #include <umps/libumps.h>
 
-extern pcb_t *ssi_pcb;
-extern pcb_t *mutex_holder;
+/*
+ * Indice del prossimo frame della Swap Pool da utilizzare nel caso in cui siano
+ * tutti pieni
+ */
+int sw_idx = 0;
 
-extern support_t *get_support_data();
-extern void acquire_swap_mutex();
-extern void release_swap_mutex();
-extern void programTrapHandler();
+/*
+ * PCB del processo che garantisce la mutua esclusione della Swap Pool Table
+ */
+pcb_t *sw_mutex_pcb;
 
-extern void klog_print(char *str);
-extern void klog_print_hex(unsigned int);
-extern void klog_print_dec(int);
+/*
+ * PCB del processo che è in possesso della mutua esclusione della Swap Pool
+ * Table
+ */
+pcb_t *mutex_holder;
 
+/*
+ * Tabella per la gestione dei frame della Swap Pool Table
+ */
 swap_t swap_table[SWAP_POOL_SIZE];
-int idx_swap; // entry index of the last allocated frame
 
-void initSwapStructs() {
-  for (int i = 0; i < SWAP_POOL_SIZE; i++) {
-    swap_table[i].sw_asid = -1; // -1 for unused frame
-    swap_table[i].sw_pageNo = 0;
-    swap_table[i].sw_pte = NULL;
-  }
+static void TLB_PageFaultHandler(support_t *excp_support);
+static void update_tlb(pteEntry_t);
+static void flashdev_readblk(int, unsigned int, unsigned int);
+static void flashdev_writeblk(int, unsigned int, unsigned int);
+static int next_swap_entry();
+static inline void IE_OFF();
+static inline void IE_ON();
 
-  idx_swap = 0;
-}
-
-swap_t *next_table_entry() {
-  idx_swap = (idx_swap + 1) % (2 * UPROCMAX);
-  return &swap_table[idx_swap];
-}
-
-unsigned int block_address(unsigned int block_number) {
-  return 0x20020000 + (block_number * FRAMESIZE);
-}
-
-void flashdev_IO(int flashdev_command, int dev_number, unsigned int ram_block,
-                 unsigned int other_block) {
-  unsigned int status;
-  /*
-   * Costruisco il comando da mandare all'SST
-   */
-  dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, dev_number);
-  unsigned int command =
-      (other_block << 8) + flashdev_command; // TODO: creare costanti
-  ssi_do_io_t do_io = {.commandAddr = &dev_reg->command,
-                       .commandValue = command};
-  ssi_payload_t payload = {.service_code = DOIO, .arg = &do_io};
-
-  /*
-   * Scrivo dentro a DATA0 il blocco RAM da copiare
-   */
-  dev_reg->data0 = ram_block;
-
-  SYSCALL(SENDMESSAGE, (unsigned int)ssi_pcb, (unsigned int)(&payload), 0);
-  SYSCALL(RECEIVEMESSAGE, (unsigned int)ssi_pcb, (unsigned int)(&status), 0);
-
-  if (status != 1) {
-    // TODO: trap
-  }
-}
-
-void update_tlb(pteEntry_t pte_entry) {
-  TLBCLR();
-
-  setENTRYHI(pte_entry.pte_entryHI);
-  setENTRYLO(pte_entry.pte_entryLO);
-  TLBWR();
-}
-
-unsigned int flashdev_block(unsigned int missing_page) {
-  return (missing_page << VPNSHIFT) - KUSEG;
-}
-
-void TLB_PageFaultHandler(support_t *curr_proc_sup, state_t *saved_excp_state) {
-  acquire_swap_mutex();
-
-  unsigned int missing_page = ENTRYHI_GET_VPN(saved_excp_state->entry_hi);
-  if (missing_page > MAXPAGES) { // TRUE iff the missing page is the stack page
-    missing_page = MAXPAGES - 1;
-  }
-
-  swap_t *swap_entry = next_table_entry();
-
-  if (swap_entry->sw_pageNo > 0) { // check if the frame is occupied
-    swap_entry->sw_pte->pte_entryLO &= !VALIDON;
-    update_tlb(*swap_entry->sw_pte);
-    flashdev_IO(3, swap_entry->sw_asid - 1, block_address(idx_swap),
-                swap_entry->sw_pageNo);
-  }
-  /* unsigned int flshdev_block = flashdev_block(missing_page); */
-  flashdev_IO(2, curr_proc_sup->sup_asid - 1, block_address(idx_swap),
-              missing_page);
-
-  /*
-   * Aggiorno SwapPool Table, U-PROC's Page Table e TLB
-   */
-  /* Finding the entry in U-PROCS's Page Table */
-  pteEntry_t *uproc_tbe = &curr_proc_sup->sup_privatePgTbl[missing_page];
-
-  /* Updating the U-PROC's Page Table entry */
-  uproc_tbe->pte_entryLO &= 0xFFFFFFFF >> 20; // erase the old PFN
-  uproc_tbe->pte_entryLO |= block_address(idx_swap) | VALIDON;
-
-  /* Updating the SwapPool Table entry */
-  swap_entry->sw_asid = curr_proc_sup->sup_asid;
-  swap_entry->sw_pte = uproc_tbe;
-
-  update_tlb(*swap_entry->sw_pte);
-
-  release_swap_mutex();
-
-  LDST(saved_excp_state);
-}
-
+/*
+ * Gestore delle eccezioni TLB-Invalid e TLB-Modification.
+ * Le prime tratta come pagefault, mentre le seconde come trap.
+ */
 void TLB_ExceptHandler() {
-  support_t *curr_proc_sup = get_support_data();
-  state_t *saved_excp_state = &curr_proc_sup->sup_exceptState[PGFAULTEXCEPT];
+  support_t *excp_support = get_support_data();
+  state_t excp_state = excp_support->sup_exceptState[PGFAULTEXCEPT];
 
-  switch (CAUSE_GET_EXCCODE(saved_excp_state->cause)) {
+  switch (CAUSE_GET_EXCCODE(excp_state.cause)) {
   case EXC_TLBL:
   case EXC_TLBS:
-    TLB_PageFaultHandler(curr_proc_sup, saved_excp_state);
+    TLB_PageFaultHandler(excp_support);
     break;
   case EXC_MOD:
-    programTrapHandler();
+    programTrapHandler(excp_support->sup_asid);
     break;
   default:
-    // FIXME: trap?
+    PANIC();
     break;
   }
 }
 
+/*
+ * Gestore della mutua esclusione delle Swap Pool
+ */
 void swapMutexHandler() {
   while (TRUE) {
     msg_t *msg;
@@ -148,3 +73,161 @@ void swapMutexHandler() {
     SYSCALL(RECEIVEMESSAGE, (unsigned int)mutex_holder, 0, 0);
   }
 }
+
+/*
+ * Funzione che inizializza le strutture dedicate alla gestione della Swap Pool.
+ * In particolare inizializza la Swap Table segnando come liberi tutti i frame
+ * della pool.
+ */
+void initSwapStructs() {
+  for (int i = 0; i < SWAP_POOL_SIZE; i++) {
+    swap_table[i].sw_asid = SW_ENTRY_UNUSED; // -1 for unused frame
+    swap_table[i].sw_pageNo = 0;
+    swap_table[i].sw_pte = NULL;
+  }
+}
+
+/*
+ * Funzione che segna come inutilizzati i frame della Swap Pool allocati
+ * dall'U-PROC specificato
+ */
+void invalidate_uproc_frames(int asid) {
+  acquire_swap_mutex();
+  for (int i = 0; i < SWAP_POOL_SIZE; i++) {
+    if (swap_table[i].sw_asid == asid) {
+      swap_table[i].sw_asid = SW_ENTRY_UNUSED;
+    }
+  }
+  release_swap_mutex();
+}
+
+/*
+ * Funzione che gestisce le PageFault: ricava la pagina che è stata richiesta e
+ * la carica in RAM in uno dei frame della Swap Pool (ne libera uno se sono
+ * tutti occupati) mantendo aggiornate la Swap Pool Table, la Page Table
+ * dell'U-PROC che ha scatenato la PageFault e il TLB
+ */
+static void TLB_PageFaultHandler(support_t *excp_support) {
+  int curr_asid = excp_support->sup_asid;
+  int frame_idx;
+  unsigned int frame_address;
+  pteEntry_t *uproc_pte;
+  swap_t *sw_entry;
+  state_t excp_state = excp_support->sup_exceptState[PGFAULTEXCEPT];
+  unsigned int missing_page = get_missing_page(excp_state.entry_hi);
+
+  uproc_pte = &excp_support->sup_privatePgTbl[missing_page];
+
+  acquire_swap_mutex();
+
+  /* Ricavo il frame della Swap Pool che andrò ad allocare */
+  frame_idx = next_swap_entry();
+  frame_address = SWAP_POOL_BASE + ((frame_idx + 1) * FRAMESIZE);
+  sw_entry = &swap_table[frame_idx];
+
+  /*
+   * Se il frame è occupato lo segno come non valido e lo scrivo nel backing
+   * store dell'U-PROC corrispondente aggiornando il TLB di conseguenza
+   */
+  if (sw_entry->sw_asid != SW_ENTRY_UNUSED) {
+    IE_OFF();
+    sw_entry->sw_pte->pte_entryLO &= ~VALIDON;
+    update_tlb(*sw_entry->sw_pte);
+    IE_ON();
+
+    flashdev_writeblk(sw_entry->sw_asid, frame_address, missing_page);
+  }
+
+  /* Leggo la pagina dal backing store dell'U-PROC al frame in RAM */
+  flashdev_readblk(curr_asid, frame_address, missing_page);
+
+  /* Aggiorno la Page Table dell'U-PROC*/
+  uproc_pte->pte_entryLO &= 0x00000FFF; // cancello il vecchioPFN
+  uproc_pte->pte_entryLO |= frame_address | VALIDON;
+
+  /* Aggiorno la SwapPool Table entry e la TLB entry*/
+  IE_OFF();
+  sw_entry->sw_asid = curr_asid;
+  sw_entry->sw_pte = uproc_pte;
+  sw_entry->sw_pageNo = uproc_pte->pte_entryHI >> VPNSHIFT;
+  update_tlb(*sw_entry->sw_pte);
+  IE_ON();
+
+  release_swap_mutex();
+
+  LDST(&excp_state);
+}
+
+/*
+ * Funzione che aggiorna l'entry specificata del TLB. Nota: ciò avviene se e
+ * solo se l'entry è contenuta nel TLB
+ */
+static void update_tlb(pteEntry_t pte_entry) {
+  setENTRYHI(pte_entry.pte_entryHI);
+  TLBP();
+
+  if ((getINDEX() & 0x80000000) == 0) { // TRUE iff the TLB contains pte_entry
+    setENTRYHI(pte_entry.pte_entryHI);
+    setENTRYLO(pte_entry.pte_entryLO);
+    TLBWI();
+  }
+}
+
+/*
+ * Funzione che scrive il blocco della RAM specificato nel flash device
+ * dell'U-PROC.
+ */
+static void flashdev_writeblk(int asid, unsigned int ram_blk,
+                              unsigned int device_blk) {
+  int status;
+  dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(FLASHINT, asid - 1);
+  dev_reg->data0 = ram_blk;
+  status = do_io(&dev_reg->command, (device_blk << 8) + FLASHDEV_WRITEBLK);
+  if (status != DEVSTATUS_READY) {
+    programTrapHandler(asid);
+  }
+}
+
+/*
+ * Funzione che legge il blocco specificato dal flash device dell'U-PROC al
+ * frame della RAM.
+ */
+static void flashdev_readblk(int asid, unsigned int ram_blk,
+                             unsigned int device_blk) {
+  int status;
+  dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(FLASHINT, asid - 1);
+  dev_reg->data0 = ram_blk;
+  status = do_io(&dev_reg->command, (device_blk << 8) + FLASHDEV_READBLK);
+  if (status != DEVSTATUS_READY) {
+    programTrapHandler(asid);
+  }
+}
+
+/*
+ * Funzione che restituisce l'indice del prossime frame della Swap Pool da
+ * allocare. Per sceglierlo cerca il primo frame libero. Nel caso in cui
+ * dovessero essere tutti occupati, utilizza 'sw_idx' per scegliere il
+ * prossimo seguendo la logica RoundRobin
+ */
+static int next_swap_entry() {
+  for (int i = 0; i < SWAP_POOL_SIZE; i++) {
+    if (swap_table[i].sw_asid < 0) {
+      return i;
+    }
+  }
+  int i = sw_idx;
+  sw_idx = (sw_idx + 1) & SWAP_POOL_SIZE;
+  return i;
+}
+
+/*
+ * Funzione che DISATTIVA gli interrupts. Viene utilizzata per garantire
+ * l'atomicità di alcune operazioni
+ */
+static inline void IE_OFF() { setSTATUS(getSTATUS() & ~STATUS_IEc); }
+
+/*
+ * Funzione che ATTIVA gli interrupts. Viene utilizzata per garantire
+ * l'atomicità di alcune operazioni
+ */
+static inline void IE_ON() { setSTATUS(getSTATUS() | STATUS_IEc); }

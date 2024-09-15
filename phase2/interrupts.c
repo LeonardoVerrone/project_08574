@@ -54,15 +54,14 @@ static void ack_device_interrupts(device_id_t dev_id) {
   case FLASH_CLASS:
   case PRNT_CLASS:
     dtpreg_t *dtp_reg =
-        (dtpreg_t *)compute_reg_address(dev_id.dev_class, dev_id.dev_number);
-    ;
+        (dtpreg_t *)compute_devreg_addr(dev_id.dev_class, dev_id.dev_number);
     status = dtp_reg->status;
     dtp_reg->command = ACK;
     free_waitingIO_pcb(status, dev_idx);
     break;
   case TERM_CLASS:
     termreg_t *termreg =
-        (termreg_t *)compute_reg_address(dev_id.dev_class, dev_id.dev_number);
+        (termreg_t *)compute_devreg_addr(dev_id.dev_class, dev_id.dev_number);
 
     /* ACK del subdevice RECV */
     status = termreg->recv_status;

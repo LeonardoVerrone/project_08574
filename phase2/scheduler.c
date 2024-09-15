@@ -12,9 +12,20 @@
 
 unsigned long start_timer;
 
+extern void klog_print(char *);
+extern void klog_print_hex(unsigned int);
+extern void klog_print_dec(unsigned int);
+
 void reloadIntervalTimer() { LDIT(PSECOND); }
 
-void reloadTimeslice() { setTIMER(TIMESLICE); }
+void reloadTimeslice() {
+  /* setTIMER(TIMESLICE); */
+  /* klog_print(", TIMESCALE: "); */
+  /* klog_print_hex((*(unsigned int *)TIMESCALEADDR)); */
+  /* klog_print(", TIMESCALEADDR * TIMESCALE: "); */
+  /* klog_print_hex(TIMESLICE * (*(int *)TIMESCALEADDR)); */
+  setTIMER(TIMESLICE * (*(int *)TIMESCALEADDR));
+}
 
 void updateCpuTime(pcb_t *pcb) {
   unsigned long cur_time;
@@ -48,9 +59,6 @@ void schedule(pcb_t *pcb) {
   }
 }
 
-/*
- * TODO: capire dove spostare questo metodo
- */
 int is_pcb_waiting(pcb_t *p) {
   if (contains_pcb(&waiting_for_PC, p)) {
     return TRUE;

@@ -1,33 +1,59 @@
 #include "headers/sysSupport.h"
 
-#include <const.h>
+#include "headers/common.h"
+
 #include <types.h>
 #include <umps/cp0.h>
 #include <umps/libumps.h>
 
-extern pcb_t *ssi_pcb;
-extern pcb_t *current_process;
+extern pcb_t *test_pcb;
 extern pcb_t *mutex_holder;
-
 extern pcb_t *sst_pcbs[UPROCMAX];
 
-extern support_t *get_support_data();
-extern void terminate_process(pcb_t *);
-extern void release_swap_mutex();
+extern void invalidate_uproc_frames(int);
 
-extern void bp();
-extern void klog_print(char *str);
-extern void klog_print_hex(unsigned int);
-extern void klog_print_dec(int);
+static void sup_SyscallHandler(support_t *);
 
-void programTrapHandler() {
-  if (current_process == mutex_holder) {
-    release_swap_mutex();
+/*
+ * Funzione che gestisce le eccezioni passate al livello supporto. Esse possono
+ * essere: SYSCALL del livello support, o Program Trap
+ */
+void sup_ExceptionHandler() {
+  support_t *excp_support = get_support_data();
+
+  const int cause_code =
+      CAUSE_GET_EXCCODE(excp_support->sup_exceptState[GENERALEXCEPT].cause);
+
+  if (cause_code == EXC_SYS) {
+    sup_SyscallHandler(excp_support);
+  } else {
+    programTrapHandler(excp_support->sup_asid);
   }
-  terminate_process(0);
 }
 
-void sup_SyscallHandler(support_t *excp_support) {
+/*
+ * Funzione che termina l'UPROC corrente in caso di trap.
+ */
+void programTrapHandler(int asid) {
+  /* Rilascio la mutua esclusione della Swap Pool (se necessario) */
+  if (mutex_holder->p_supportStruct->sup_asid == asid) {
+    release_swap_mutex();
+  }
+
+  /* Segno come inutilizzati i frame della Swap Pool che occupavo */
+  invalidate_uproc_frames(asid);
+
+  /* Avviso il processo di test che sto terminando */
+  SYSCALL(SENDMESSAGE, (unsigned int)test_pcb, 0, 0);
+
+  terminate_process(NULL);
+}
+
+/*
+ * Funzione che gestisce le System Call di livello supporto, in particolare
+ * vengono gestite le SYSCALL di tipo SENDMSG e RECEIVEMSG.
+ */
+static void sup_SyscallHandler(support_t *excp_support) {
   state_t *excp_state = &excp_support->sup_exceptState[GENERALEXCEPT];
   pcb_t *dest = (pcb_t *)excp_state->reg_a1;
   const unsigned int payload = excp_state->reg_a2;
@@ -43,22 +69,10 @@ void sup_SyscallHandler(support_t *excp_support) {
     SYSCALL(RECEIVEMESSAGE, (unsigned int)dest, payload, 0);
     break;
   default:
-    programTrapHandler();
+    programTrapHandler(excp_support->sup_asid);
     return;
   }
 
   excp_state->pc_epc += WORDLEN;
   LDST(excp_state);
-}
-
-void sup_ExceptionHandler() {
-  support_t *excp_support = get_support_data();
-  const int cause_code =
-      CAUSE_GET_EXCCODE(excp_support->sup_exceptState[GENERALEXCEPT].cause);
-
-  if (cause_code == EXC_SYS) {
-    sup_SyscallHandler(excp_support);
-  } else {
-    programTrapHandler();
-  }
 }

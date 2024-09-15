@@ -5,6 +5,7 @@
 #include "headers/globals.h"
 #include "headers/interrupts.h"
 #include "headers/scheduler.h"
+#include "headers/ssi.h"
 #include "headers/util.h"
 
 #include <const.h>

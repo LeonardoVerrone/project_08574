@@ -3,6 +3,8 @@
 
 #include <types.h>
 
-static inline void SSI_create_process(pcb_t *parent, ssi_create_process_t *arg);
 void SSI_handler();
+
+void kill_process(pcb_t *);
+
 #endif // !SSI_HEADER

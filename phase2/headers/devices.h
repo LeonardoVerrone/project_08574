@@ -3,8 +3,6 @@
 
 #include <umps/const.h>
 
-// #define NUMBER_OF_DEVICES (DEVINTNUM * DEVPERINT) + DEVINTNUM
-
 /*
  * Interrupt lines
  */
@@ -32,14 +30,23 @@
  */
 #define DEVSTATUS_READY 1
 
-typedef struct device_id_t {
+/*
+ * Device commands
+ */
+#define FLASHDEV_READBLK 2
+#define FLASHDEV_WRITEBLK 3
+
+typedef struct device_id {
   int dev_class;
   int dev_number;
 } device_id_t;
 
 int get_intline_from_cause();
+
 int get_dev_number(int intline);
+
 void get_device_id(unsigned int command_address, device_id_t *device_id);
-unsigned int compute_reg_address(int dev_class, int dev_number);
+
+unsigned int compute_devreg_addr(int dev_class, int dev_number);
 
 #endif // !DEVICES_HEADER
